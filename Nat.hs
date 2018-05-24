@@ -74,13 +74,13 @@ instance Functor (List n) where
     fmap f E       = E
     fmap f (x:-xs) = (f x):-(fmap f xs)
 
-zip' :: List n a -> List n b -> List n (a,b)
-zip' E E             = E
-zip' (x:-xs) (y:-ys) = (x,y):-(zip' xs ys)
+fasten :: List n a -> List n b -> List n (a,b)
+fasten E E             = E
+fasten (x:-xs) (y:-ys) = (x,y):-(fasten xs ys)
 
 instance (KnownNat n) => Applicative (List n) where
     pure    = rep knownNat
-    xs<*>ys = (uncurry ($)) <$> zip' xs ys
+    xs<*>ys = (uncurry ($)) <$> fasten xs ys
 
 instance Foldable (List Z) where
     foldMap _ E = mempty
@@ -128,6 +128,10 @@ instance Monoid (FinList a) where
     mempty = FinList E
     (FinList xs) `mappend` (FinList ys) = FinList $ xs.+ys
 
+rev :: FinList a -> FinList a
+rev (FinList E) = FinList E
+rev (FinList (x:-xs)) = (rev $ FinList xs) <> pure x
+
 type family (m :: Nat) :+ (n :: Nat) :: Nat
 type instance Z:+n     = n
 type instance (S m):+n = S (m:+n)
@@ -141,18 +145,18 @@ flatten E       = E
 flatten (x:-xs) = x.+(flatten xs)
 
 cross :: List m a -> List n b -> List m (List n (a,b))
-cross E _        = E
-cross (x:-xs) ys = ((\y -> (x,y))<$>ys):-(cross xs ys)
+E `cross` _        = E
+(x:-xs) `cross` ys = ((\y -> (x,y))<$>ys):-(cross xs ys)
 
 rep :: SNat n -> a -> List n a
 rep SZ _     = E
 rep (SS n) x = x:-(rep n x)
 
-head' :: List (S n) a -> a
-head' (x:-_) = x
+first :: List (S n) a -> a
+first (x:-_) = x
 
-tail' :: List (S n) a -> List n a
-tail' (_:-xs) = xs
+rest :: List (S n) a -> List n a
+rest (_:-xs) = xs
 
 class KnownNat n where knownNat :: SNat n
 instance KnownNat Z where knownNat = SZ
