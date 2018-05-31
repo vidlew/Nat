@@ -15,38 +15,40 @@ data Skeleton n where
     L    :: Skeleton (S n) -> Skeleton n -- Lambda abstraction. The restriction ensures that every lambda skeleton is the skeleton of at least one linear lambda term.
 deriving instance Show (Skeleton n)
 
-data BlueSkeleton n where
-    BV :: BlueSkeleton (S Z)
-    BA :: BlueSkeleton m -> RedSkeleton n -> BlueSkeleton (m:+n)
-deriving instance Show (BlueSkeleton n)
+data Colour = Blue | Red deriving (Show, Eq)
 
-data RedSkeleton n where
-    RB :: BlueSkeleton n -> RedSkeleton n
-    RL :: RedSkeleton (S n) -> RedSkeleton n
-deriving instance Show (RedSkeleton n)
+infixl 5 :&
+data ColouredSkeleton c n where
+    BV   :: ColouredSkeleton Blue (S Z) -- v-rule
+    (:&) :: ColouredSkeleton Blue m -> ColouredSkeleton Red n -> ColouredSkeleton Blue (m:+n) -- a-rule
+    RB   :: ColouredSkeleton Blue n -> ColouredSkeleton Red n -- s-rule
+    RL   :: ColouredSkeleton Red (S n) -> ColouredSkeleton Red n
+deriving instance Show (ColouredSkeleton c n)
 
-data ColouredSkeleton n = Blue (BlueSkeleton n) | Red (RedSkeleton n)
+size :: (Num a) => ColouredSkeleton c n -> a
+size BV     = 0
+size (u:&v) = (size u)+(size v)
+size (RB u) = (size u)+1
+size (RL u) = size u
 
-size :: ColouredSkeleton n -> Int
-size (Blue BV) = 0
-size (Blue (BA u v)) = (size $ Blue u)+(size $ Red v)
-size (Red (RB u)) = 1+(size $ Blue u)
-size (Red (RL u)) = size $ Red u
+unColour :: ColouredSkeleton c n -> Skeleton n
+unColour BV     = V
+unColour (u:&v) = (unColour u):.(unColour v)
+unColour (RB u) = unColour u
+unColour (RL u) = L $ unColour u
 
-unColour :: ColouredSkeleton n -> Skeleton n
-unColour (Blue BV) = V
-unColour (Blue (BA u v)) = (unColour $ Blue u):.(unColour $ Red v)
-unColour (Red (RB u)) = unColour $ Blue u
-unColour (Red (RL u)) = L $ unColour $ Red u
+-- Returns the unique blue colouring of u if u is neutral, nothing otherwise
+neut :: Skeleton n -> Maybe (ColouredSkeleton Blue n)
+neut V      = Just BV
+neut (u:.v) = do x <- neut u
+                 y <- norm v
+                 return $ x:&y
+neut _      = Nothing
 
-neut :: Skeleton n -> BlueSkeleton n
-neut V = BV
-neut (u:.v) = BA (neut u) (norm v)
-neut _ = error "no blue colouring exists"
-
-norm :: Skeleton n -> RedSkeleton n
-norm (L u) = RL $ norm u
-norm u = RB $ neut u
+-- Returns the unique red colouring of u if u is normal, nothing otherwise
+norm :: Skeleton n -> Maybe (ColouredSkeleton Red n)
+norm (L u) = RL <$> norm u
+norm u     = RB <$> neut u
 
 -- Motzkin trees. Essentially lambda skeletons without the linearity restriction.
 data Motzkin = P | B Motzkin Motzkin | U Motzkin deriving (Show, Eq)

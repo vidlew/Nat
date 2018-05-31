@@ -48,7 +48,7 @@ instance (Num (FinOrd n)) => Num (FinOrd (S n)) where{
 ;   (OS m) - (OS n) = i $ m - n where i :: FinOrd n -> FinOrd (S n)
                                       i OZ     = OZ
                                       i (OS n) = OS $ i n
-;   _-_             = error "Negative ordinal"
+;   _-_             = error "negative ordinal"
 }
 
 instance Ord (FinOrd Z)
@@ -67,8 +67,9 @@ deriving instance (Show a) => Show (List n a)
 deriving instance (Eq a) => Eq (List n a)
 
 (!) :: (List n a) -> (FinOrd n) -> a
-(x:-_) ! (OZ)    = x
-(_:-xs) ! (OS o) = xs!o
+(x:-_)  ! (OZ)    = x
+(_:-xs) ! (OS o)  = xs!o
+_       ! _       = error "index out of range"
 
 instance Functor (List n) where
     fmap f E       = E
@@ -178,6 +179,24 @@ data Permutation n where
     (:#) :: FinOrd (S n) -> Permutation n -> Permutation (S n)
 deriving instance Show (Permutation n)
 deriving instance Eq (Permutation n)
+
+permToList :: Permutation n -> List n (FinOrd n)
+permToList EP = E
+permToList (OZ :# p) = OZ :- (OS <$> permToList p)
+--permToList ((OS o) :# p) = (first l) :- (i o $ rest l) where l = OS <$> permList p
+--                                                             i :: FinOrd n -> List n (FinOrd n) -> List (S n) (FinOrd n)
+--                                                             i OZ l = OZ :- l
+--                                                             i (OS o) l = (first l) :- (i o $ rest l)
+
+data Parity = Even | Odd deriving (Show, Eq)
+parity :: Permutation n -> Parity
+parity EP = Even
+parity (OZ:#p) = parity p
+parity ((OS o):#p) = r $ parity $ (i o):#p where r Even = Odd
+                                                 r Odd = Even
+                                                 i :: FinOrd n -> FinOrd (S n)
+                                                 i OZ = OZ
+                                                 i (OS o) = OS $ i o
 
 -- Subsets of [n] of size k
 -- X's mark chosen elements, O's mark omitted elements
