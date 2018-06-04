@@ -5,6 +5,8 @@
 module Nat where
 
 import Data.Monoid
+import Control.Applicative
+import Control.Monad
 
 data Nat = Z | S Nat
 
@@ -135,6 +137,12 @@ instance Monoid (FinList a) where
     mempty = FinList E
     (FinList xs) `mappend` (FinList ys) = FinList $ xs.+ys
 
+instance Alternative FinList where
+    empty = mempty
+    (<|>) = (<>)
+
+instance MonadPlus FinList
+
 rev :: FinList a -> FinList a
 rev (FinList E)       = FinList E
 rev (FinList (x:-xs)) = (rev $ FinList xs) <> pure x
@@ -227,6 +235,14 @@ parity ((OS o):#p) = r $ parity $ (i o):#p where r Even = Odd
                                                  i :: FinOrd n -> FinOrd (S n)
                                                  i OZ = OZ
                                                  i (OS o) = OS $ i o
+
+instance Monoid (Permutation Z) where
+    mempty          = EP
+    EP `mappend` EP = EP
+
+instance (Monoid (Permutation n)) => Monoid (Permutation (S n)) where
+    mempty = OZ:#mempty
+    --finish this later
 
 -- Subsets of [n] of size k
 -- X's mark chosen elements, O's mark omitted elements
