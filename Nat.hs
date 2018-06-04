@@ -6,7 +6,6 @@ module Nat where
 
 import Data.Monoid
 
-
 data Nat = Z | S Nat
 
 data SNat n where
@@ -75,6 +74,7 @@ instance Functor (List n) where
     fmap f E       = E
     fmap f (x:-xs) = (f x):-(fmap f xs)
 
+-- "zip" was already taken
 fasten :: List n a -> List n b -> List n (a,b)
 fasten E E             = E
 fasten (x:-xs) (y:-ys) = (x,y):-(fasten xs ys)
@@ -133,6 +133,15 @@ rev :: FinList a -> FinList a
 rev (FinList E) = FinList E
 rev (FinList (x:-xs)) = (rev $ FinList xs) <> pure x
 
+insert :: FinOrd (S n) -> List n a -> a -> List (S n) a
+insert OZ xs y = y:-xs
+insert (OS o) E y = y:-E
+insert (OS o) (x:-xs) y = x:-(insert o xs y)
+
+applyAt :: FinOrd n -> (a->a) -> List n a -> List n a
+applyAt OZ f (x:-xs) = (f x):-xs
+applyAt (OS o) f (x:-xs) = x:-(applyAt o f xs)
+
 type family (m :: Nat) :+ (n :: Nat) :: Nat
 type instance Z:+n     = n
 type instance (S m):+n = S (m:+n)
@@ -172,7 +181,9 @@ finOrdList :: SNat n -> List n (FinOrd n)
 finOrdList SZ     = E
 finOrdList (SS n) = OZ:-(OS <$> finOrdList n)
 
--- Permutations of [0..n-1]
+-- Permutations of [n] = [0..n-1]
+-- EP is the empty permutation of []
+-- o:#p is the permutation obtained by adding 1 to everything in p, then adding 0 in the o'th position
 infixr 5 :#
 data Permutation n where
     EP   :: Permutation Z
@@ -182,11 +193,7 @@ deriving instance Eq (Permutation n)
 
 permToList :: Permutation n -> List n (FinOrd n)
 permToList EP = E
-permToList (OZ :# p) = OZ :- (OS <$> permToList p)
---permToList ((OS o) :# p) = (first l) :- (i o $ rest l) where l = OS <$> permList p
---                                                             i :: FinOrd n -> List n (FinOrd n) -> List (S n) (FinOrd n)
---                                                             i OZ l = OZ :- l
---                                                             i (OS o) l = (first l) :- (i o $ rest l)
+permToList (o :# p) = insert o (OS <$> permToList p) OZ
 
 data Parity = Even | Odd deriving (Show, Eq)
 parity :: Permutation n -> Parity
@@ -231,19 +238,19 @@ deriving instance Show (CyclePartition n k)
 deriving instance Eq (CyclePartition n k)
 
 cyclePartitionToList :: CyclePartition n k -> List k (FinList (FinOrd n))
-cyclePartitionToList NC = E
+cyclePartitionToList NC     = E
 cyclePartitionToList (SC c) = (return OZ) :- ((OS<$>) <$> cyclePartitionToList c)
---cyclePartitionToList (o :@ c) = f o l  where l = (OS<$>) <$> cyclePartitionToList c
---                                             f :: FinOrd n -> List k (FinList (FinOrd n)) -> List k (FinList (FinOrd n))
---                                             f o (x:-xs) = if (finOrdVal o)>=length x then x:-(f (o`m`x) xs) else g o x
---                                             o`m`x = undefined
---                                             g o x = undefined
+cyclePartitionToList (o:@c) = f (finOrdVal o) $ (OS<$>) <$> cyclePartitionToList c where f :: Int -> List k (FinList (FinOrd (S n))) -> List k (FinList (FinOrd (S n)))
+                                                                                         f x (l:-ls)           = if x < length l then (i x l):-ls else l:-(f (x - length l) ls)
+                                                                                         i :: Int -> FinList (FinOrd (S n)) -> FinList (FinOrd (S n))
+                                                                                         i 0 l                 = (return OZ) <> l
+                                                                                         i n (FinList (x:-xs)) = (return x) <> (i (n-1) $ FinList xs)
 
 -- List of all (n cycle k) partitions of [n] into k cycles
 cyclePartitionList :: SNat n -> SNat k -> List (Cycle n k) (CyclePartition n k)
-cyclePartitionList SZ SZ = NC:-E
-cyclePartitionList (SS n) SZ = E
-cyclePartitionList SZ (SS k) = E
+cyclePartitionList SZ SZ         = NC:-E
+cyclePartitionList (SS n) SZ     = E
+cyclePartitionList SZ (SS k)     = E
 cyclePartitionList (SS n) (SS k) = ((uncurry (:@)) <$> (flatten $ (finOrdList n) `cross` (cyclePartitionList n (SS k)))) .+ (SC <$> cyclePartitionList n k) 
 
 -- Partitions of [n] into k subsets
@@ -254,6 +261,11 @@ data Partition n k where
     (:\) :: FinOrd k -> Partition n k -> Partition (S n) k
 deriving instance Show (Partition n k)
 deriving instance Eq (Partition n k)
+
+partitionToList :: Partition n k -> List k (FinList (FinOrd n))
+partitionToList NP     = E
+partitionToList (SP p) = (return OZ) :- ((OS<$>) <$> partitionToList p)
+partitionToList (o:\p) = applyAt o (return OZ <>) ((OS<$>) <$> partitionToList p)
 
 -- List of all (n subset k) partitions of [n] into k subsets
 partitionList :: SNat n -> SNat k -> List (Subset n k) (Partition n k)
@@ -333,11 +345,10 @@ permList :: SNat n -> List (Factorial n) (Permutation n)
 permList SZ     = EP:-E
 permList (SS n) = uncurry (:#) <$> (flatten $ (finOrdList $ SS n) `cross` (permList n))
 
-finOrdVal :: FinOrd n -> Int
+finOrdVal :: (Num a) => FinOrd n -> a
 finOrdVal OZ = 0
 finOrdVal (OS o) = 1+(finOrdVal o)
 
-sNatVal :: SNat n -> Int
+sNatVal :: (Num a) => SNat n -> a
 sNatVal SZ = 0
 sNatVal (SS n) = 1+(sNatVal n)
-
