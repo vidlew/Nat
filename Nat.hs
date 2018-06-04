@@ -130,12 +130,28 @@ instance Monoid (FinList a) where
     (FinList xs) `mappend` (FinList ys) = FinList $ xs.+ys
 
 rev :: FinList a -> FinList a
-rev (FinList E) = FinList E
+rev (FinList E)       = FinList E
 rev (FinList (x:-xs)) = (rev $ FinList xs) <> pure x
 
+lshift :: FinList a -> FinList a
+lshift (FinList E)       = FinList E
+lshift (FinList (x:-xs)) = (FinList xs) <> return x
+
+rshift :: FinList a -> FinList a
+rshift (FinList E)           = FinList E
+rshift (FinList (l@(x:-xs))) = (return $ final l) <> (FinList $ butFinal l)
+
+final :: List (S n) a -> a
+final (x:-E)      = x
+final (x:-xx:-xs) = final $ xx:-xs
+
+butFinal :: List (S n) a -> List n a
+butFinal (_:-E)      = E
+butFinal (x:-xx:-xs) = x:-(butFinal $ xx:-xs)
+
 insert :: FinOrd (S n) -> List n a -> a -> List (S n) a
-insert OZ xs y = y:-xs
-insert (OS o) E y = y:-E
+insert OZ xs y          = y:-xs
+insert (OS o) E y       = y:-E
 insert (OS o) (x:-xs) y = x:-(insert o xs y)
 
 applyAt :: FinOrd n -> (a->a) -> List n a -> List n a
@@ -283,6 +299,13 @@ data ListPartition n k where
 deriving instance Show (ListPartition n k)
 deriving instance Eq (ListPartition n k)
 
+listPartitionToList :: ListPartition n k -> List k (FinList (FinOrd n))
+listPartitionToList NL = E
+listPartitionToList (SL l) = (return OZ) :- ((OS<$>) <$> listPartitionToList l)
+-- to be written
+-- need to copy some code from cyclePartitionToList, eh eh
+
+-- List of all (n list k) partitions of [n] into k lists
 listPartitionList :: SNat n -> SNat k -> List (Lah n k) (ListPartition n k)
 listPartitionList SZ SZ = NL:-E
 listPartitionList (SS n) SZ = E
