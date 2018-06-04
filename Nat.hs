@@ -1,5 +1,5 @@
 {-# LANGUAGE GADTs, DataKinds, StandaloneDeriving, TypeFamilies, KindSignatures, TypeOperators #-}
-{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, FlexibleInstances, FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances, ExistentialQuantification #-}
 
 module Nat where
@@ -18,14 +18,19 @@ addSingleton :: SNat m -> SNat n -> SNat (m:+n)
 SZ     `addSingleton` n = n
 (SS m) `addSingleton` n = SS $ m `addSingleton` n
 
+multiplySingleton :: SNat m -> SNat n -> SNat (m:*n)
+SZ     `multiplySingleton` _ = SZ
+(SS m) `multiplySingleton` n = n `addSingleton` (m `multiplySingleton` n)
+
 type family Pred (n :: Nat) :: Nat
-type instance Pred Z = Z
+type instance Pred Z     = Z
 type instance Pred (S n) = n
 
 data FinOrd n where
     OZ :: FinOrd (S n)
     OS :: (FinOrd n) -> (FinOrd (S n))
-deriving instance Show (FinOrd n)
+--deriving instance Show (FinOrd n)
+instance Show (FinOrd a) where show = show . finOrdVal
 deriving instance Eq (FinOrd n)
 
 instance Num (FinOrd Z)
@@ -41,7 +46,7 @@ instance (Num (FinOrd n)) => Num (FinOrd (S n)) where{
 ;   (OS m) * (OS n) = OS $ m*n + m + n
 ;   abs OZ          = OZ
 ;   abs x           = x 
-;   signum OZ       = OZ
+;   signum OZ       = 0
 ;   signum _        = 1
 ;   m-OZ            = m
 ;   (OS m) - (OS n) = i $ m - n where i :: FinOrd n -> FinOrd (S n)
@@ -62,7 +67,8 @@ infixr 5 :-
 data List n a where
     E    :: List Z a
     (:-) :: a -> (List n a) -> List (S n) a
-deriving instance (Show a) => Show (List n a)
+--deriving instance (Show a) => Show (List n a)
+instance (Show a, Foldable (List n)) => Show (List n a) where show = show . (foldr (:) [])
 deriving instance (Eq a) => Eq (List n a)
 
 (!) :: (List n a) -> (FinOrd n) -> a
@@ -94,10 +100,10 @@ E .+ ys       = ys
 (x:-xs) .+ ys = x:-(xs.+ys)
 
 -- The free monoid on a
--- [a] is sometimes described as the free monoid on a, but this is false as [a] includes infinite lists
+-- [a] is sometimes described as the free monoid on a, but this is fake news as [a] includes infinite lists
 data FinList a = forall n. FinList (List n a)
-deriving instance Show a => Show (FinList a)
-
+--deriving instance Show a => Show (FinList a)
+instance (Show a) => Show (FinList a) where show = show . (foldr (:) [])
 instance (Eq a) => Eq (FinList a) where
     (FinList E)       == (FinList E)       = True
     (FinList E)       == (FinList (_:-_))  = False
@@ -155,7 +161,7 @@ insert (OS o) E y       = y:-E
 insert (OS o) (x:-xs) y = x:-(insert o xs y)
 
 applyAt :: FinOrd n -> (a->a) -> List n a -> List n a
-applyAt OZ f (x:-xs) = (f x):-xs
+applyAt OZ f (x:-xs)     = (f x):-xs
 applyAt (OS o) f (x:-xs) = x:-(applyAt o f xs)
 
 type family (m :: Nat) :+ (n :: Nat) :: Nat
@@ -171,7 +177,7 @@ flatten E       = E
 flatten (x:-xs) = x.+(flatten xs)
 
 cross :: List m a -> List n b -> List m (List n (a,b))
-E `cross` _        = E
+E       `cross` _  = E
 (x:-xs) `cross` ys = ((\y -> (x,y))<$>ys):-(cross xs ys)
 
 rep :: SNat n -> a -> List n a
@@ -204,17 +210,18 @@ infixr 5 :#
 data Permutation n where
     EP   :: Permutation Z
     (:#) :: FinOrd (S n) -> Permutation n -> Permutation (S n)
-deriving instance Show (Permutation n)
+--deriving instance Show (Permutation n)
+instance (Foldable (List n)) => Show (Permutation n) where show = show . permToList
 deriving instance Eq (Permutation n)
 
 permToList :: Permutation n -> List n (FinOrd n)
-permToList EP = E
-permToList (o :# p) = insert o (OS <$> permToList p) OZ
+permToList EP     = E
+permToList (o:#p) = insert o (OS <$> permToList p) OZ
 
 data Parity = Even | Odd deriving (Show, Eq)
 parity :: Permutation n -> Parity
-parity EP = Even
-parity (OZ:#p) = parity p
+parity EP          = Even
+parity (OZ:#p)     = parity p
 parity ((OS o):#p) = r $ parity $ (i o):#p where r Even = Odd
                                                  r Odd = Even
                                                  i :: FinOrd n -> FinOrd (S n)
@@ -239,9 +246,9 @@ combToList (O c) = OS <$> combToList c
 
 -- List of all (n choose k) combinations
 combList :: SNat n -> SNat k -> List (Choose n k) (Comb n k)
-combList SZ SZ = EC:-E
-combList SZ (SS k) = E
-combList (SS n) SZ = O <$> combList n SZ
+combList SZ     SZ     = EC:-E
+combList SZ     (SS k) = E
+combList (SS n) SZ     = O <$> combList n SZ
 combList (SS n) (SS k) = (X <$> combList n k) .+ (O <$> combList n (SS k))
 
 -- Partitions of [n] into k cycles
@@ -250,7 +257,8 @@ data CyclePartition n k where
     NC   :: CyclePartition Z Z
     SC   :: CyclePartition n k -> CyclePartition (S n) (S k)
     (:@) :: FinOrd n -> CyclePartition n k -> CyclePartition (S n) k
-deriving instance Show (CyclePartition n k)
+--deriving instance Show (CyclePartition n k)
+instance (Foldable (List k)) => Show (CyclePartition n k) where show = show . cyclePartitionToList
 deriving instance Eq (CyclePartition n k)
 
 cyclePartitionToList :: CyclePartition n k -> List k (FinList (FinOrd n))
@@ -264,9 +272,9 @@ cyclePartitionToList (o:@c) = f (finOrdVal o) $ (OS<$>) <$> cyclePartitionToList
 
 -- List of all (n cycle k) partitions of [n] into k cycles
 cyclePartitionList :: SNat n -> SNat k -> List (Cycle n k) (CyclePartition n k)
-cyclePartitionList SZ SZ         = NC:-E
+cyclePartitionList SZ     SZ     = NC:-E
 cyclePartitionList (SS n) SZ     = E
-cyclePartitionList SZ (SS k)     = E
+cyclePartitionList SZ     (SS k) = E
 cyclePartitionList (SS n) (SS k) = ((uncurry (:@)) <$> (flatten $ (finOrdList n) `cross` (cyclePartitionList n (SS k)))) .+ (SC <$> cyclePartitionList n k) 
 
 -- Partitions of [n] into k subsets
@@ -275,7 +283,8 @@ data Partition n k where
     NP   :: Partition Z Z
     SP   :: Partition n k -> Partition (S n) (S k)
     (:\) :: FinOrd k -> Partition n k -> Partition (S n) k
-deriving instance Show (Partition n k)
+--deriving instance Show (Partition n k)
+instance (Foldable (List k)) => Show (Partition n k) where show = show . partitionToList
 deriving instance Eq (Partition n k)
 
 partitionToList :: Partition n k -> List k (FinList (FinOrd n))
@@ -285,9 +294,9 @@ partitionToList (o:\p) = applyAt o (return OZ <>) ((OS<$>) <$> partitionToList p
 
 -- List of all (n subset k) partitions of [n] into k subsets
 partitionList :: SNat n -> SNat k -> List (Subset n k) (Partition n k)
-partitionList SZ SZ = NP:-E
-partitionList (SS n) SZ = E
-partitionList SZ (SS k) = E
+partitionList SZ     SZ     = NP:-E
+partitionList (SS n) SZ     = E
+partitionList SZ     (SS k) = E
 partitionList (SS n) (SS k) = ((uncurry (:\)) <$> (flatten $ (finOrdList (SS k)) `cross` (partitionList n (SS k)))) .+ (SP <$> partitionList n k) 
 
 -- Partitions of [n] into k lists
@@ -296,72 +305,77 @@ data ListPartition n k where
     NL   :: ListPartition Z Z
     SL   :: ListPartition n k -> ListPartition (S n) (S k)
     (:|) :: FinOrd (n:+k) -> ListPartition n k -> ListPartition (S n) k
-deriving instance Show (ListPartition n k)
+--deriving instance Show (ListPartition n k)
+instance (Foldable (List k)) => Show (ListPartition n k) where show = show . listPartitionToList
 deriving instance Eq (ListPartition n k)
 
 listPartitionToList :: ListPartition n k -> List k (FinList (FinOrd n))
-listPartitionToList NL = E
+listPartitionToList NL     = E
 listPartitionToList (SL l) = (return OZ) :- ((OS<$>) <$> listPartitionToList l)
--- to be written
--- need to copy some code from cyclePartitionToList, eh eh
+listPartitionToList (o:|l) = f (finOrdVal o) $ (OS<$>) <$> listPartitionToList l where f :: Int -> List k (FinList (FinOrd (S n))) -> List k (FinList (FinOrd (S n)))
+                                                                                       f x (l:-ls)           = if x <= length l then (i x l):-ls else l:-(f (x - 1 - length l) ls)
+                                                                                       i :: Int -> FinList (FinOrd (S n)) -> FinList (FinOrd (S n))
+                                                                                       i 0 l                 = (return OZ) <> l
+                                                                                       i n (FinList (x:-xs)) = (return x) <> (i (n-1) $ FinList xs)
+
 
 -- List of all (n list k) partitions of [n] into k lists
 listPartitionList :: SNat n -> SNat k -> List (Lah n k) (ListPartition n k)
-listPartitionList SZ SZ = NL:-E
-listPartitionList (SS n) SZ = E
-listPartitionList SZ (SS k) = E
+listPartitionList SZ     SZ     = NL:-E
+listPartitionList (SS n) SZ     = E
+listPartitionList SZ     (SS k) = E
 listPartitionList (SS n) (SS k) = ((uncurry (:|)) <$> (flatten $ (finOrdList $ n `addSingleton` (SS k)) `cross` (listPartitionList n (SS k)))) .+ (SL <$> listPartitionList n k) 
 
 -- Number of subsets of [n]
 type family Power (n :: Nat) :: Nat
-type instance Power Z = S Z
+type instance Power Z     = S Z
 type instance Power (S n) = (Power n):+(Power n)
 
 -- Number of permutations of [n]
 type family Factorial (n :: Nat) :: Nat
-type instance Factorial Z = S Z
+type instance Factorial Z     = S Z
 type instance Factorial (S n) = (S n):*(Factorial n)
 
 type family BellTriangle (i :: Nat) (j :: Nat) :: Nat
-type instance BellTriangle Z Z = S Z
-type instance BellTriangle (S i) Z = BellTriangle i i
+type instance BellTriangle Z     Z     = S Z
+type instance BellTriangle (S i) Z     = BellTriangle i i
 type instance BellTriangle (S i) (S j) = (BellTriangle i j) :+ (BellTriangle (S i) j)
 
 -- Bell numbers
 -- Number of partitions of [n] into nonempty sets
 type family Bell (n :: Nat) :: Nat
-type instance Bell Z = S Z
+type instance Bell Z     = S Z
 type instance Bell (S n) = BellTriangle n n
 
 -- Binomial coefficients
 -- Number of subsets of [n] with k elements
 type family Choose (n :: Nat) (k :: Nat) :: Nat
-type instance Choose Z (S k) = Z
-type instance Choose n Z = S Z
+type instance Choose Z     (S k)  = Z
+type instance Choose n     Z     = S Z
 type instance Choose (S n) (S k) = (Choose n k):+(Choose n (S k))
 
 -- Stirling numbers of the first kind
 -- Number of permutations of [n] with k cycles
 type family Cycle (n :: Nat) (k :: Nat) :: Nat
-type instance Cycle Z Z = S Z
-type instance Cycle Z (S k) = Z
-type instance Cycle (S n) Z = Z
+type instance Cycle Z     Z     = S Z
+type instance Cycle Z     (S k) = Z
+type instance Cycle (S n) Z     = Z
 type instance Cycle (S n) (S k) = (n:*(Cycle n (S k))) :+ (Cycle n k)
 
 -- Stirling numbers of the second kind
 -- Number of ways of partitioning [n] into k nonempty sets
 type family Subset (n :: Nat) (k :: Nat) :: Nat
-type instance Subset Z Z = S Z
-type instance Subset Z (S k) = Z
-type instance Subset (S n) Z = Z
+type instance Subset Z     Z     = S Z
+type instance Subset Z     (S k) = Z
+type instance Subset (S n) Z     = Z
 type instance Subset (S n) (S k) = ((S k):*(Subset n (S k))) :+ (Subset n k)
 
 -- Lah numbers, or Stirling numbers of the third kind
 -- Number of partitions of [n] into k lists
 type family Lah (n :: Nat) (k :: Nat) :: Nat
-type instance Lah Z Z = S Z
-type instance Lah Z (S k) = Z
-type instance Lah (S n) Z = Z
+type instance Lah Z     Z     = S Z
+type instance Lah Z     (S k) = Z
+type instance Lah (S n) Z     = Z
 type instance Lah (S n) (S k) = ((n:+(S k)):*(Lah n (S k))) :+ (Lah n k)
 
 permList :: SNat n -> List (Factorial n) (Permutation n)
@@ -369,9 +383,9 @@ permList SZ     = EP:-E
 permList (SS n) = uncurry (:#) <$> (flatten $ (finOrdList $ SS n) `cross` (permList n))
 
 finOrdVal :: (Num a) => FinOrd n -> a
-finOrdVal OZ = 0
+finOrdVal OZ     = 0
 finOrdVal (OS o) = 1+(finOrdVal o)
 
 sNatVal :: (Num a) => SNat n -> a
-sNatVal SZ = 0
+sNatVal SZ     = 0
 sNatVal (SS n) = 1+(sNatVal n)
