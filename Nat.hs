@@ -1,3 +1,5 @@
+-- High-tech solutions to low-tech problems
+
 {-# LANGUAGE GADTs, DataKinds, StandaloneDeriving, TypeFamilies, KindSignatures, TypeOperators #-}
 {-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances, ExistentialQuantification #-}
@@ -101,7 +103,8 @@ instance (Foldable (List n)) => Foldable (List (S n)) where
 E .+ ys       = ys
 (x:-xs) .+ ys = x:-(xs.+ys)
 
--- The free monoid on a
+-- Lists that are guaranteed to be finite
+-- FinList a is the free monoid on a
 -- [a] is sometimes described as the free monoid on a, but this is fake news as [a] includes infinite lists
 data FinList a = forall n. FinList (List n a)
 --deriving instance Show a => Show (FinList a)
@@ -111,6 +114,11 @@ instance (Eq a) => Eq (FinList a) where
     (FinList E)       == (FinList (_:-_))  = False
     (FinList (_:-_))  == (FinList E)       = False
     (FinList (x:-xs)) == (FinList (y:-ys)) = (x==y) && ((FinList xs) == (FinList ys))
+
+-- Exercise: What happens when you apply toFinList to an infinite list?
+toFinList :: [a] -> FinList a
+toFinList []      = FinList E
+toFinList (x:xs) = return x <> toFinList xs
 
 instance Foldable FinList where
     foldMap f (FinList E)       = mempty
@@ -163,10 +171,14 @@ butFinal :: List (S n) a -> List n a
 butFinal (_:-E)      = E
 butFinal (x:-xx:-xs) = x:-(butFinal $ xx:-xs)
 
-insert :: FinOrd (S n) -> List n a -> a -> List (S n) a
-insert OZ xs y          = y:-xs
-insert (OS o) E y       = y:-E
-insert (OS o) (x:-xs) y = x:-(insert o xs y)
+insert :: FinOrd (S n) -> a -> List n a -> List (S n) a
+insert OZ y xs          = y:-xs
+insert (OS o) y E       = y:-E
+insert (OS o) y (x:-xs) = x:-(insert o y xs)
+
+delete :: FinOrd (S n) -> List (S n) a -> List n a
+delete OZ     (_:-xs)     = xs
+delete (OS o) (x:-xx:-xs) = x:-(delete o $ xx:-xs)
 
 applyAt :: FinOrd n -> (a->a) -> List n a -> List n a
 applyAt OZ f (x:-xs)     = (f x):-xs
@@ -224,25 +236,31 @@ deriving instance Eq (Permutation n)
 
 permToList :: Permutation n -> List n (FinOrd n)
 permToList EP     = E
-permToList (o:#p) = insert o (OS <$> permToList p) OZ
+permToList (o:#p) = insert o OZ (OS <$> permToList p)
 
 data Parity = Even | Odd deriving (Show, Eq)
+
+instance Monoid Parity where
+    mempty = Even
+    Even `mappend` Even = Even
+    Even `mappend` Odd  = Odd
+    Odd  `mappend` Even = Odd
+    Odd  `mappend` Odd  = Even
+
 parity :: Permutation n -> Parity
 parity EP          = Even
 parity (OZ:#p)     = parity p
-parity ((OS o):#p) = r $ parity $ (i o):#p where r Even = Odd
-                                                 r Odd = Even
-                                                 i :: FinOrd n -> FinOrd (S n)
-                                                 i OZ = OZ
-                                                 i (OS o) = OS $ i o
+parity ((OS o):#p) = Odd <> (parity $ (i o):#p) where i :: FinOrd n -> FinOrd (S n)
+                                                      i OZ     = OZ
+                                                      i (OS o) = OS $ i o
 
 instance Monoid (Permutation Z) where
     mempty          = EP
     EP `mappend` EP = EP
 
-instance (Monoid (Permutation n)) => Monoid (Permutation (S n)) where
+instance (Monoid (Permutation n), KnownNat n) => Monoid (Permutation (S n)) where
     mempty = OZ:#mempty
-    --finish this later
+    --p `mappend` q = ? This is tricky.
 
 -- Subsets of [n] of size k
 -- X's mark chosen elements, O's mark omitted elements
