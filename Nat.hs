@@ -248,7 +248,7 @@ permToList :: Permutation n -> List n (FinOrd n)
 permToList EP     = E
 permToList (o:#p) = insert o OZ (OS <$> permToList p)
 
--- Convert a list to a permutation if it is a permutation.
+-- Return the unique permutation p such that l = permToList p if it exists, Nothing otherwise
 listToPerm :: List n (FinOrd n) -> Maybe (Permutation n)
 listToPerm E = Just EP
 listToPerm (l@(_:-_)) = do i <- firstIndex OZ l
