@@ -280,6 +280,9 @@ parity ((OS o):#p) = Odd + (parity $ (i o):#p) where i :: FinOrd n -> FinOrd (S 
                                                      i OZ     = OZ
                                                      i (OS o) = OS $ i o
 
+inverse :: (KnownNat n) => Permutation n -> Permutation n
+inverse l = fromJust $ listToPerm $ fromJust <$> ((pure $ flip firstIndex $ permToList l) <*> finOrdList knownNat)
+
 instance Monoid (Permutation Z) where
     mempty          = EP
     EP `mappend` EP = EP
