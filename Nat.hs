@@ -2,7 +2,7 @@
 
 {-# LANGUAGE GADTs, DataKinds, StandaloneDeriving, TypeFamilies, KindSignatures, TypeOperators #-}
 {-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, FlexibleContexts #-}
-{-# LANGUAGE UndecidableInstances, ExistentialQuantification #-}
+{-# LANGUAGE UndecidableInstances, ExistentialQuantification, TupleSections #-}
 
 module Nat where
 
@@ -25,10 +25,6 @@ SZ     `addSingleton` n = n
 multiplySingleton :: SNat m -> SNat n -> SNat (m:*n)
 SZ     `multiplySingleton` _ = SZ
 (SS m) `multiplySingleton` n = n `addSingleton` (m `multiplySingleton` n)
-
-type family Pred (n :: Nat) :: Nat
-type instance Pred Z     = Z
-type instance Pred (S n) = n
 
 data FinOrd n where
     OZ :: FinOrd (S n)
@@ -104,7 +100,7 @@ E .+ ys       = ys
 (x:-xs) .+ ys = x:-(xs.+ys)
 
 -- Lists that are guaranteed to be finite
--- FinList a is the free monoid on a
+-- FinList a is (more or less) the free monoid on a
 -- [a] is sometimes described as the free monoid on a, but this is fake news as [a] includes infinite lists
 data FinList a = forall n. FinList (List n a)
 --deriving instance Show a => Show (FinList a)
@@ -151,17 +147,21 @@ instance Alternative FinList where
 
 instance MonadPlus FinList
 
-rev :: FinList a -> FinList a
-rev (FinList E)       = FinList E
-rev (FinList (x:-xs)) = (rev $ FinList xs) <> pure x
+--rev :: FinList a -> FinList a
+--rev (FinList E)       = FinList E
+--rev (FinList (x:-xs)) = (rev $ FinList xs) <> pure x
 
-lshift :: FinList a -> FinList a
-lshift (FinList E)       = FinList E
-lshift (FinList (x:-xs)) = (FinList xs) <> return x
+rev :: List n a -> List n a
+rev E          = E
+rev (l@(_:-_)) = (final l):-(rev $ butFinal l)
 
-rshift :: FinList a -> FinList a
-rshift (FinList E)           = FinList E
-rshift (FinList (l@(x:-xs))) = (return $ final l) <> (FinList $ butFinal l)
+lshift :: List n a -> List n a
+lshift E       = E
+lshift (x:-xs) = rev $ x:-(rev xs)
+
+rshift :: List n a -> List n a
+rshift E          = E
+rshift (l@(_:-_)) = (final l):-(butFinal l)
 
 final :: List (S n) a -> a
 final (x:-E)      = x
@@ -198,7 +198,7 @@ flatten (x:-xs) = x.+(flatten xs)
 
 cross :: List m a -> List n b -> List m (List n (a,b))
 E       `cross` _  = E
-(x:-xs) `cross` ys = ((\y -> (x,y))<$>ys):-(cross xs ys)
+(x:-xs) `cross` ys = ((x,)<$>ys):-(cross xs ys)
 
 rep :: SNat n -> a -> List n a
 rep SZ _     = E
@@ -240,19 +240,26 @@ permToList (o:#p) = insert o OZ (OS <$> permToList p)
 
 data Parity = Even | Odd deriving (Show, Eq)
 
-instance Monoid Parity where
-    mempty = Even
-    Even `mappend` Even = Even
-    Even `mappend` Odd  = Odd
-    Odd  `mappend` Even = Odd
-    Odd  `mappend` Odd  = Even
+instance Num Parity where{
+    fromInteger n = if even n then Even else Odd
+;   Even + Even = Even
+;   Even + Odd  = Odd
+;   Odd  + Even = Odd
+;   Odd  + Odd  = Even
+;   Even * _    = Even
+;   _    * Even = Even
+;   _    * _    = Odd
+;   abs         = id
+;   signum      = id
+;   negate      = id
+}
 
 parity :: Permutation n -> Parity
 parity EP          = Even
 parity (OZ:#p)     = parity p
-parity ((OS o):#p) = Odd <> (parity $ (i o):#p) where i :: FinOrd n -> FinOrd (S n)
-                                                      i OZ     = OZ
-                                                      i (OS o) = OS $ i o
+parity ((OS o):#p) = Odd + (parity $ (i o):#p) where i :: FinOrd n -> FinOrd (S n)
+                                                     i OZ     = OZ
+                                                     i (OS o) = OS $ i o
 
 instance Monoid (Permutation Z) where
     mempty          = EP
