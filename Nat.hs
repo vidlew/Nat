@@ -248,9 +248,13 @@ permToList :: Permutation n -> List n (FinOrd n)
 permToList EP     = E
 permToList (o:#p) = insert o OZ (OS <$> permToList p)
 
+permList :: SNat n -> List (Factorial n) (Permutation n)
+permList SZ     = EP:-E
+permList (SS n) = uncurry (:#) <$> (flatten $ (finOrdList $ SS n) `cross` (permList n))
+
 -- Return the unique permutation p such that l = permToList p if it exists, Nothing otherwise
 listToPerm :: List n (FinOrd n) -> Maybe (Permutation n)
-listToPerm E = Just EP
+listToPerm E          = Just EP
 listToPerm (l@(_:-_)) = do i <- firstIndex OZ l
                            let l' = delete i l
                            guard $ not $ OZ `isIn` l'
@@ -288,7 +292,7 @@ instance Monoid (Permutation Z) where
     EP `mappend` EP = EP
 
 instance (Monoid (Permutation n), KnownNat n) => Monoid (Permutation (S n)) where
-    mempty = OZ:#mempty
+    mempty        = OZ:#mempty
     p `mappend` q = fromJust $ listToPerm $ ((permToList q)!) <$> permToList p
 
 -- Subsets of [n] of size k
@@ -413,7 +417,7 @@ type instance Bell (S n) = BellTriangle n n
 -- Binomial coefficients
 -- Number of subsets of [n] with k elements
 type family Choose (n :: Nat) (k :: Nat) :: Nat
-type instance Choose Z     (S k)  = Z
+type instance Choose Z     (S k) = Z
 type instance Choose n     Z     = S Z
 type instance Choose (S n) (S k) = (Choose n k):+(Choose n (S k))
 
@@ -440,10 +444,6 @@ type instance Lah Z     Z     = S Z
 type instance Lah Z     (S k) = Z
 type instance Lah (S n) Z     = Z
 type instance Lah (S n) (S k) = ((n:+(S k)):*(Lah n (S k))) :+ (Lah n k)
-
-permList :: SNat n -> List (Factorial n) (Permutation n)
-permList SZ     = EP:-E
-permList (SS n) = uncurry (:#) <$> (flatten $ (finOrdList $ SS n) `cross` (permList n))
 
 finOrdVal :: (Num a) => FinOrd n -> a
 finOrdVal OZ     = 0
