@@ -9,6 +9,7 @@ module Nat where
 import Data.Monoid
 import Control.Applicative
 import Control.Monad
+import Data.Maybe (fromJust)
 
 data Nat = Z | S Nat
 
@@ -184,6 +185,15 @@ applyAt :: FinOrd n -> (a->a) -> List n a -> List n a
 applyAt OZ f (x:-xs)     = (f x):-xs
 applyAt (OS o) f (x:-xs) = x:-(applyAt o f xs)
 
+-- Index of first occurence of x if it exists, Nothing otherwise
+firstIndex :: (Eq a) => a -> List n a -> Maybe (FinOrd n)
+firstIndex _ E       = Nothing
+firstIndex x (y:-ys) = if x==y then Just OZ else OS <$> firstIndex x ys
+
+isIn :: (Eq a) => a -> List n a -> Bool
+_ `isIn` E = False
+x `isIn` (y:-ys) = x==y || x`isIn`ys
+
 type family (m :: Nat) :+ (n :: Nat) :: Nat
 type instance Z:+n     = n
 type instance (S m):+n = S (m:+n)
@@ -238,6 +248,15 @@ permToList :: Permutation n -> List n (FinOrd n)
 permToList EP     = E
 permToList (o:#p) = insert o OZ (OS <$> permToList p)
 
+-- Convert a list to a permutation if it is a permutation.
+listToPerm :: List n (FinOrd n) -> Maybe (Permutation n)
+listToPerm E = Just EP
+listToPerm (l@(_:-_)) = do i <- firstIndex OZ l
+                           let l' = delete i l
+                           guard $ not $ OZ `isIn` l'
+                           p <- listToPerm $ (\(OS o) -> o) <$> l'
+                           return $ i:#p
+
 data Parity = Even | Odd deriving (Show, Eq)
 
 instance Num Parity where{
@@ -267,7 +286,7 @@ instance Monoid (Permutation Z) where
 
 instance (Monoid (Permutation n), KnownNat n) => Monoid (Permutation (S n)) where
     mempty = OZ:#mempty
-    --p `mappend` q = ? This is tricky.
+    p `mappend` q = fromJust $ listToPerm $ ((permToList q)!) <$> permToList p
 
 -- Subsets of [n] of size k
 -- X's mark chosen elements, O's mark omitted elements
