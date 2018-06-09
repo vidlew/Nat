@@ -50,9 +50,9 @@ instance (Num (FinOrd n)) => Num (FinOrd (S n)) where{
 ;   signum OZ       = 0
 ;   signum _        = 1
 ;   m-OZ            = m
-;   (OS m) - (OS n) = i $ m - n where i :: FinOrd n -> FinOrd (S n)
-                                      i OZ     = OZ
-                                      i (OS n) = OS $ i n
+;   (OS m) - (OS n) = finOrdVal $ m - n --where i :: FinOrd n -> FinOrd (S n)
+                                --      i OZ     = OZ
+                                --      i (OS n) = OS $ i n
 ;   _-_             = error "negative ordinal"
 }
 
@@ -139,7 +139,7 @@ instance Monad FinList where
 --                                  c (FinList (x:-xx:-xs)) = c $ FinList $ (x<>xx):-xs
 
 instance Monoid (FinList a) where
-    mempty = FinList E
+    mempty                              = FinList E
     (FinList xs) `mappend` (FinList ys) = FinList $ xs.+ys
 
 instance Alternative FinList where
@@ -294,6 +294,14 @@ instance Monoid (Permutation Z) where
 instance (Monoid (Permutation n), KnownNat n) => Monoid (Permutation (S n)) where
     mempty        = OZ:#mempty
     p `mappend` q = fromJust $ listToPerm $ ((permToList q)!) <$> permToList p
+
+permute :: Permutation n -> List n a -> List n a
+permute EP E           = E
+permute (o:#p) (x:-xs) = insert o x $ permute p xs
+
+inversePermute :: Permutation n -> List n a -> List n a
+inversePermute EP E     = E
+inversePermute (o:#p) l = (l!o):-(inversePermute p $ delete o l)
 
 -- Subsets of [n] of size k
 -- X's mark chosen elements, O's mark omitted elements
