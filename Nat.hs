@@ -125,13 +125,12 @@ instance Functor FinList where
     fmap f (FinList xs) = FinList $ f<$>xs
 
 instance Applicative FinList where
-    pure      = return
+    pure      = FinList . (:-E)
     fs <*> xs = do f <- fs
                    x <- xs
                    return $ f x
 
 instance Monad FinList where
-    return   = FinList . (:-E)
     xs >>= f = foldr (<>) mempty $ f <$> xs
 --    xs >>= f = c $ f <$> xs where c :: FinList (FinList a) -> FinList a
 --                                  c (FinList E)           = FinList E
