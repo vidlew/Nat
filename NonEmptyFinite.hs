@@ -16,7 +16,7 @@ instance (Eq a) => Eq (NonEmptyFinite a) where
     (NonEmptyFinite (x:-E))      == (NonEmptyFinite (y:-E)) = x==y
     (NonEmptyFinite (_:-E))      == (NonEmptyFinite (_:-_:-_)) = False
     (NonEmptyFinite (_:-_:-_))   == (NonEmptyFinite (_:-E)) = False
-    (NonEmptyFinite (x:-xx:-xs)) == (NonEmptyFinite (y:-yy:-ys)) = x==y && NonEmptyFinite (x:-xs) == NonEmptyFinite (y:-ys)
+    (NonEmptyFinite (x:-xx:-xs)) == (NonEmptyFinite (y:-yy:-ys)) = x==y && NonEmptyFinite (xx:-xs) == NonEmptyFinite (yy:-ys)
 
 instance Foldable (NonEmptyFinite) where
     foldMap f (NonEmptyFinite (x:-E))      = f x
