@@ -13,9 +13,9 @@ data NonEmptyFinite a = forall n. NonEmptyFinite (List (S n) a)
 instance (Show a) => Show (NonEmptyFinite a) where show = show . (foldr (:) [])
 
 instance (Eq a) => Eq (NonEmptyFinite a) where
-    (NonEmptyFinite (x:-E))      == (NonEmptyFinite (y:-E)) = x==y
-    (NonEmptyFinite (_:-E))      == (NonEmptyFinite (_:-_:-_)) = False
-    (NonEmptyFinite (_:-_:-_))   == (NonEmptyFinite (_:-E)) = False
+    (NonEmptyFinite (x:-E))      == (NonEmptyFinite (y:-E))      = x==y
+    (NonEmptyFinite (_:-E))      == (NonEmptyFinite (_:-_:-_))   = False
+    (NonEmptyFinite (_:-_:-_))   == (NonEmptyFinite (_:-E))      = False
     (NonEmptyFinite (x:-xx:-xs)) == (NonEmptyFinite (y:-yy:-ys)) = x==y && NonEmptyFinite (xx:-xs) == NonEmptyFinite (yy:-ys)
 
 instance Foldable (NonEmptyFinite) where
