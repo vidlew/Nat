@@ -2,7 +2,7 @@
 
 {-# LANGUAGE GADTs, DataKinds, StandaloneDeriving, TypeFamilies, KindSignatures, TypeOperators #-}
 {-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, FlexibleContexts #-}
-{-# LANGUAGE UndecidableInstances, ExistentialQuantification, TupleSections #-}
+{-# LANGUAGE UndecidableInstances, TupleSections #-}
 
 module Nat where
 
@@ -103,7 +103,9 @@ E .+ ys       = ys
 -- Lists that are guaranteed to be finite
 -- FinList a is (more or less) the free monoid on a
 -- [a] is sometimes described as the free monoid on a, but this is fake news as [a] includes infinite lists
-data FinList a = forall n. FinList (List n a)
+--data FinList a = forall n. FinList (List n a)
+data FinList a where
+    FinList :: List n a -> FinList a
 --deriving instance Show a => Show (FinList a)
 instance (Show a) => Show (FinList a) where show = show . (foldr (:) [])
 instance (Eq a) => Eq (FinList a) where
@@ -459,3 +461,26 @@ finOrdVal (OS o) = 1+(finOrdVal o)
 sNatVal :: (Num a) => SNat n -> a
 sNatVal SZ     = 0
 sNatVal (SS n) = 1+(sNatVal n)
+
+--data SomeNat = forall n. SomeNat (SNat n)
+data SomeNat where
+    SomeNat :: SNat n -> SomeNat
+instance Show SomeNat where show (SomeNat x) = show $ sNatVal x
+instance Eq SomeNat where
+    SomeNat SZ     == SomeNat SZ     = True
+    SomeNat (SS _) == SomeNat SZ     = False
+    SomeNat SZ     == SomeNat (SS _) = False
+    SomeNat (SS x) == SomeNat (SS y) = SomeNat x == SomeNat y
+
+instance Num SomeNat where{
+    fromInteger 0                       = SomeNat SZ
+;   fromInteger n                       = (\(SomeNat m) -> SomeNat $ SS m) $ fromInteger $ n-1
+;   (SomeNat m) + (SomeNat n)           = SomeNat $ m `addSingleton` n
+;   (SomeNat m) * (SomeNat n)           = SomeNat $ m `multiplySingleton` n
+;   abs                                 = id
+;   signum 0                            = 0
+;   signum _                            = 1
+;   m                - (SomeNat SZ)     = m
+;   (SomeNat (SS m)) - (SomeNat (SS n)) = SomeNat m - SomeNat n
+;   _                - _                = error "Negative"
+}
