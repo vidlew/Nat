@@ -228,7 +228,7 @@ instance (KnownNat n) => KnownNat (S n) where knownNat = SS $ knownNat
 transpose :: (KnownNat n) => List m (List n a) -> List n (List m a)
 transpose (E:-_)  = E
 transpose E       = pure E
-transpose (x:-xs) = ((:-)<$>x) <*> (transpose xs)
+transpose (x:-xs) = ((:-)<$>x) <*> transpose xs
 
 finOrdList :: SNat n -> List n (FinOrd n)
 finOrdList SZ     = E
