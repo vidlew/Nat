@@ -11,25 +11,36 @@ x `matrixPlus` y = ((uncurry (+))<$>) . uncurry fasten <$> fasten x y
 matrixTimes :: (Num a, KnownNat m, Foldable (List l)) => Matrix k l a -> Matrix l m a -> Matrix k m a
 x `matrixTimes` y =  (sum<$>) . (((uncurry (*))<$>)<$>) . ((uncurry fasten)<$>) <$> x `cross` transpose y
 
+-- Multiply a vector by a matrix on the left
 lTimes :: (Num a, Foldable (List n)) => Matrix m n a -> List n a -> List m a
 x `lTimes` y = sum . ((uncurry (*))<$>) . fasten y <$> x
 
+-- Multiply a vector by a matrix on the right
 rTimes :: (Num a, KnownNat n, Foldable (List m)) => List m a -> Matrix m n a -> List n a
 x `rTimes` y = transpose y `lTimes` x
 
--- Matrix tensor product
+-- Tensor product of vectors
+tens :: (Num a) => List m a -> List n a -> List (m:*n) a
+u `tens` v = uncurry (*) <$> (flatten $ u `cross` v)
+
+-- Matrix tensor product, aka Kronecker product
+-- Satisfies the identity (x⊗y) `lTimes` (u`tens`v) = (x`lTimes`u) `tens` (y`lTimes`v)
 (⊗) :: (Num a) => Matrix k l a -> Matrix m n a -> Matrix (k:*m) (l:*n) a
 x⊗y = flatten <$> (flatten $ ((((uncurry (*))<$>)<$>)<$>) . ((uncurry cross)<$>) <$> x`cross`y)
 otimes :: (Num a) => List k (List l a) -> List m (List n a) -> List (k:*m) (List (l:*n) a)
 otimes = (⊗)
 
--- Matrix direct product
+-- Matrix direct sum
+-- Satisfies the identity (x⊕y) `lTimes` (u.+v) = (x`lTimes`u) .+ (y`lTimes`v)
+-- ((.+) is the direct sum of vectors)
 (⊕) :: (Num a, KnownNat l, KnownNat n) => Matrix k l a -> Matrix m n a -> Matrix (k:+m) (l:+n) a
 x⊕y = ((.+(first $ pure 0:-y)) <$> x) .+ (((first $ pure 0:-x).+) <$> y)
 oplus :: (Num a, KnownNat l, KnownNat n) => List k (List l a) -> List m (List n a) -> List (k:+m) (List (l:+n) a)
 oplus = (⊕)
 
--- Kronecker sum, x⊗1 + 1⊗y
+-- Kronecker sum or tensor sum, x⊗1 + 1⊗y
+-- Defined for any two square matrices
+-- Satisfies the identity (x`kroneckerPlus`y) `lTimes` (u`tens`v) = ((x`lTimes`u) `tens` v) `matrixPlus` (u `tens` (y`lTimes v))
 kroneckerPlus :: (Num a, Num (Square m a), Num (Square n a), Num (Square (m:*n) a)) => Square m a -> Square n a -> Square (m:*n) a
 x `kroneckerPlus` y = (x⊗(first $ 1:-y:-E)) + ((first $ 1:-x:-E)⊗y)
 
@@ -38,6 +49,7 @@ x `kroneckerPlus` y = (x⊗(first $ 1:-y:-E)) + ((first $ 1:-x:-E)⊗y)
 -- Largest common submatrix of x⊗y and y⊗y
 -- Unlike other matrix operations, not basis invariant
 -- The identity for the Hadamard product is (pure $ pure 1)
+-- Satisfies the identity (x⊗y)○(z⊗w) = (x○z)⊗(y○w)
 (○) :: (Num a) => Matrix m n a -> Matrix m n a -> Matrix m n a
 x○y = ((uncurry (*))<$>) . uncurry fasten <$> fasten x y
 hadamardTimes :: (Num a) => Matrix m n a -> Matrix m n a -> Matrix m n a
