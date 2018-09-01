@@ -8,8 +8,14 @@ import Nat
 matrixPlus :: (Num a) => Matrix m n a -> Matrix m n a -> Matrix m n a
 x `matrixPlus` y = ((uncurry (+))<$>) . uncurry fasten <$> fasten x y
 
-matrixTimes :: (Num a, KnownNat m, Foldable (List l)) => Matrix k l a -> Matrix l  m a -> Matrix k m a
+matrixTimes :: (Num a, KnownNat m, Foldable (List l)) => Matrix k l a -> Matrix l m a -> Matrix k m a
 x `matrixTimes` y =  (sum<$>) . (((uncurry (*))<$>)<$>) . ((uncurry fasten)<$>) <$> x `cross` transpose y
+
+lTimes :: (Num a, Foldable (List n)) => Matrix m n a -> List n a -> List m a
+x `lTimes` y = sum . ((uncurry (*))<$>) . fasten y <$> x
+
+rTimes :: (Num a, KnownNat n, Foldable (List m)) => List m a -> Matrix m n a -> List n a
+x `rTimes` y = transpose y `lTimes` x
 
 -- Matrix tensor product
 (⊗) :: (Num a) => Matrix k l a -> Matrix m n a -> Matrix (k:*m) (l:*n) a
@@ -31,7 +37,7 @@ x `kroneckerPlus` y = (x⊗(first $ 1:-y:-E)) + ((first $ 1:-x:-E)⊗y)
 -- Sounds stupid, but is actually useful
 -- Largest common submatrix of x⊗y and y⊗y
 -- Unlike other matrix operations, not basis invariant
--- The identity for the Hadamsrd product is (pure $ pure 1)
+-- The identity for the Hadamard product is (pure $ pure 1)
 (○) :: (Num a) => Matrix m n a -> Matrix m n a -> Matrix m n a
 x○y = ((uncurry (*))<$>) . uncurry fasten <$> fasten x y
 hadamardTimes :: (Num a) => Matrix m n a -> Matrix m n a -> Matrix m n a
@@ -41,10 +47,10 @@ type Matrix m n a = List m (List n a)
 type Square n a = Matrix n n a
 
 permanent :: (Num a, KnownNat n, Foldable (List n), Foldable (List (Factorial n))) => Square n a -> a
-permanent x = sum $ product . (<*>x) . ((flip (!))<$>) . permToList <$> (permList knownNat)
+permanent x = sum $ product . (<*>x) . ((flip (!))<$>) . permToList <$> permList knownNat
 
 determinant :: (Num a, KnownNat n, Foldable (List n), Foldable (List (Factorial n))) => Square n a -> a
-determinant x = sum $ (\p -> (if parity p == Even then 1 else -1) * (product . (<*>x) . ((flip (!))<$>) $ permToList p)) <$> (permList knownNat)
+determinant x = sum $ (\p -> (if parity p == Even then 1 else -1) * (product . (<*>x) . ((flip (!))<$>) $ permToList p)) <$> permList knownNat
 
 trace :: Num a => Square n a -> a
 trace E = 0
@@ -55,13 +61,16 @@ instance Num a => Num (Square Z a) where{
 ;   E*E           = E
 ;   fromInteger _ = E
 ;   negate E      = E
+;   abs E         = E
+;   signum E      = E
 }
 
-instance (Num a, KnownNat (S n), Foldable (List (S n))) => Num (Square (S n) a) where{
+instance (Num a, KnownNat (S n), Foldable (List (S n)){-, Foldable (List (Factorial (S n)))-}) => Num (Square (S n) a) where{
     (+)           = matrixPlus
 ;   (*)           = matrixTimes
 ;   fromInteger k = (\x -> insert x (fromInteger k) $ rest $ pure 0) <$> finOrdList knownNat
 ;   negate        = ((negate<$>)<$>)
+--;   abs m          = (\x -> insert x (determinant m) $ rest $ pure 0) <$> finOrdList knownNat
 }
 
 instance Fractional a => Fractional (Square Z a) where{
@@ -78,4 +87,3 @@ instance (Fractional a, KnownNat n, KnownNat (S n), Num (Square (S n) a), Foldab
                                                          f (OS o) w      = -(f o w)
                                                          f o      (OS w) = -(f o w)
 }
-
