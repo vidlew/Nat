@@ -99,3 +99,16 @@ instance (Fractional a, KnownNat n, KnownNat (S n), Num (Square (S n) a), Foldab
                                                          f (OS o) w      = -(f o w)
                                                          f o      (OS w) = -(f o w)
 }
+
+-- Exterior product of a list of k vectors
+-- List of determinants of all k×k submatrices
+-- Basis vectors of k-th exterior power are lists of k distinct basis vectors in lexicographic order
+-- For example, the 2nd exterior power of a 3-dimensional vector space with ordered basis i,j,k has an ordered basis ij,ik,jk
+-- The cross product in three dimensions is just the exterior product with i, j, and k identfied with jk, ki = -ik, and  ij respectively
+exteriorProduct :: (Num a, KnownNat k, KnownNat n, Foldable (List k), Foldable (List (Factorial k))) => List k (List n a) -> List (Choose n k) a
+exteriorProduct l = determinant . (\os -> (\x -> (x!) <$> os) <$> l) . combToList <$> combList knownNat knownNat
+
+-- k-th exterior power of a linear map
+-- Satisfies the identity (exteriorPower m k) `lTimes` (exteriorProduct l) = exteriorProduct $ (m`lTimes`) <$> l whenever l has length k
+exteriorPower :: (Num a, KnownNat k, KnownNat m, KnownNat n, Foldable (List k), Foldable (List (Factorial k))) => Matrix m n a -> SNat k -> Matrix (Choose m k) (Choose n k) a
+exteriorPower m k = (determinant<$>) . ((\(os,ws) -> (<$>ws) . (!) . (m!) <$> os)<$>) <$> (combToList <$> combList knownNat k) `cross` (combToList <$> combList knownNat k)
