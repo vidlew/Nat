@@ -147,14 +147,16 @@ exteriorPower m k = (determinant<$>) . ((\(os,ws) -> (<$>ws) . (!) . (m!) <$> os
 
 -- Symmetric product of a list of k vectors
 -- Basis vectors of k-th symmetric power are lists of k basis vectors in lexicographic order
-symmetricProduct :: (Num a, KnownNat k, KnownNat n, Foldable (List k), Foldable (List (Factorial k)), Ord (FinOrd k)) => List k (List n a) -> List (MultiChoose n k) a
+symmetricProduct :: (Num a, KnownNat k, KnownNat n, Foldable (List k), Foldable (List (Factorial k)), Ord (FinOrd k))
+                 => List k (List n a) -> List (MultiChoose n k) a
 symmetricProduct l = (\c -> semipermanent (f c) $ (\x -> (x!) <$> c) <$> l) . multiCombToList <$> multiCombList knownNat knownNat where
                f :: (KnownNat k, Eq a) => List k a -> FinList (FinList (FinOrd k))
                f l = (snd<$>) <$> (splitWith (\(x,_) (y,_) -> x==y) $ FinList $ fasten l $ finOrdList knownNat)
 
 -- k-th symmetric power of a linear map
 -- Satisfies the identity (symmetricPower m k) `lTimes` (symmetricProduct l) = symmetricProduct $ (m`lTimes`) <$> l whenever l has length k
-symmetricPower :: (Num a, KnownNat m, KnownNat n, KnownNat k, Foldable (List k), Foldable (List (Factorial k)), Ord (FinOrd k), KnownNat (MultiChoose m k)) => Matrix m n a -> SNat k -> Matrix (MultiChoose m k) (MultiChoose n k) a
+symmetricPower :: (Num a, KnownNat m, KnownNat n, KnownNat k, Foldable (List k), Foldable (List (Factorial k)), Ord (FinOrd k), KnownNat (MultiChoose m k))
+               => Matrix m n a -> SNat k -> Matrix (MultiChoose m k) (MultiChoose n k) a
 symmetricPower m k = transpose $ (\c -> symmetricProduct $ ((transpose m)!) <$> c) . multiCombToList <$> multiCombList knownNat k
 
 semipermanent :: (Num a, KnownNat n, Foldable (List n), Foldable (List (Factorial n)), Ord (FinOrd n)) => FinList (FinList (FinOrd n)) -> Square n a -> a
