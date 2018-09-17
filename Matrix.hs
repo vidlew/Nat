@@ -152,20 +152,19 @@ symmetricProduct :: (Num a, KnownNat k, KnownNat n, Foldable (List k), Foldable 
 symmetricProduct l = (\c -> semipermanent (f c) $ (\x -> (x!) <$> c) <$> l) . multiCombToList <$> multiCombList knownNat knownNat where
                f :: (KnownNat k, Eq a) => List k a -> FinList (FinList (FinOrd k))
                f l = (snd<$>) <$> (splitWith (\(x,_) (y,_) -> x==y) $ FinList $ fasten l $ finOrdList knownNat)
+               semipermanent :: (Num a, KnownNat n, Foldable (List n), Foldable (List (Factorial n)), Ord (FinOrd n)) => FinList (FinList (FinOrd n)) -> Square n a -> a
+               semipermanent q x = sum $ (\p -> if f q p then (product . (<*>x) . ((flip (!))<$>) $ permToList p) else 0) <$> permList knownNat where
+                  f :: (Ord (FinOrd n), KnownNat n) => FinList (FinList (FinOrd n)) -> Permutation n -> Bool
+                  f q p = foldl (&&) True $ g <$> q where l                        = permToList $ inverse p
+                                                          g (FinList E)            = True
+                                                          g (FinList (_:-E))       = True
+                                                          g (FinList (x:-xx:-xs))  = l!x < l!xx && (g $ FinList $ xx:-xs)
 
 -- k-th symmetric power of a linear map
 -- Satisfies the identity (symmetricPower m k) `lTimes` (symmetricProduct l) = symmetricProduct $ (m`lTimes`) <$> l whenever l has length k
 symmetricPower :: (Num a, KnownNat m, KnownNat n, KnownNat k, Foldable (List k), Foldable (List (Factorial k)), Ord (FinOrd k), KnownNat (MultiChoose m k))
                => Matrix m n a -> SNat k -> Matrix (MultiChoose m k) (MultiChoose n k) a
 symmetricPower m k = transpose $ (\c -> symmetricProduct $ ((transpose m)!) <$> c) . multiCombToList <$> multiCombList knownNat k
-
-semipermanent :: (Num a, KnownNat n, Foldable (List n), Foldable (List (Factorial n)), Ord (FinOrd n)) => FinList (FinList (FinOrd n)) -> Square n a -> a
-semipermanent q x = sum $ (\p -> if f q p then (product . (<*>x) . ((flip (!))<$>) $ permToList p) else 0) <$> permList knownNat where
-            f :: (Ord (FinOrd n), KnownNat n) => FinList (FinList (FinOrd n)) -> Permutation n -> Bool
-            f q p = foldl (&&) True $ g <$> q where l = permToList $ inverse p
-                                                    g (FinList E)            = True
-                                                    g (FinList (_:-E))       = True
-                                                    g (FinList (x:-xx:-xs))  = l!x < l!xx && (g $ FinList $ xx:-xs)
 
 data Set n where Set :: Comb n k -> Set n
 deriving instance Show (Set n)
@@ -199,6 +198,6 @@ multiCombList SZ     (SS _) = E
 multiCombList (SS n) (SS k) = (XM <$> multiCombList (SS n) k).+(OM <$> multiCombList n (SS k))
 
 multiCombToList :: MultiComb n k -> List k (FinOrd n)
-multiCombToList EM = E
+multiCombToList EM     = E
 multiCombToList (XM m) = OZ :- multiCombToList m
 multiCombToList (OM m) = OS <$> multiCombToList m
