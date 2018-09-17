@@ -12,11 +12,14 @@ import TemplateNat
 $(genNats 127)
 $(genOnes 127)
 
-matrixPlus :: (Num a) => Matrix m n a -> Matrix m n a -> Matrix m n a
+matrixPlus :: Num a => Matrix m n a -> Matrix m n a -> Matrix m n a
 x `matrixPlus` y = ((uncurry (+))<$>) . uncurry fasten <$> fasten x y
 
 matrixTimes :: (Num a, KnownNat m, Foldable (List l)) => Matrix k l a -> Matrix l m a -> Matrix k m a
 x `matrixTimes` y =  (sum<$>) . (((uncurry (*))<$>)<$>) . ((uncurry fasten)<$>) <$> x `cross` transpose y
+
+vectorPlus :: Num a => List n a -> List n a -> List n a
+u `vectorPlus` v = (uncurry (+)) <$> fasten u v
 
 -- Multiply a vector by a matrix on the left
 lTimes :: (Num a, Foldable (List n)) => Matrix m n a -> List n a -> List m a
@@ -27,7 +30,7 @@ rTimes :: (Num a, KnownNat n, Foldable (List m)) => List m a -> Matrix m n a -> 
 x `rTimes` y = transpose y `lTimes` x
 
 -- Tensor product of vectors
-tens :: (Num a) => List m a -> List n a -> List (m:*n) a
+tens :: Num a => List m a -> List n a -> List (m:*n) a
 u `tens` v = uncurry (*) <$> (flatten $ u `cross` v)
 
 -- Matrix tensor product, aka Kronecker product
@@ -47,7 +50,7 @@ oplus = (⊕)
 
 -- Kronecker sum or tensor sum, x⊗1 + 1⊗y
 -- Defined for any two square matrices
--- Satisfies the identity (x`kroneckerPlus`y) `lTimes` (u`tens`v) = (uncurry (+)) <$> fasten ((x`lTimes`u) `tens` v) (u `tens` (y`lTimes v))
+-- Satisfies the identity (x`kroneckerPlus`y) `lTimes` (u`tens`v) = ((x`lTimes`u) `tens` v) `vectorPlus` (u `tens` (y`lTimes v))
 kroneckerPlus :: (Num a, Num (Square m a), Num (Square n a), Num (Square (m:*n) a)) => Square m a -> Square n a -> Square (m:*n) a
 x `kroneckerPlus` y = (x⊗(first $ 1:-y:-E)) + ((first $ 1:-x:-E)⊗y)
 
