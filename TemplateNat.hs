@@ -28,8 +28,11 @@ nat :: Int -> Q Type
 nat 0 = [t| Z |]
 nat n = [t| S $(nat $ n-1) |]
 
+genSNats :: Int -> Q [Dec]
+genSNats n = forM [0..n] s where s i = do x <- sNat i; return $ FunD (mkName $ 's':show i) [Clause [] (NormalB x) []]
+
 genNats :: Int -> Q [Dec]
-genNats n = forM [0..n] s where s i = do x <- sNat i; return $ FunD (mkName $ 's':show i) [Clause [] (NormalB x) []]
+genNats n = forM [0..n] s where s i = do x <- nat i; return $ TySynD (mkName $ 'N':show i) [] x
 
 genOnes :: Int -> Q [Dec]
 genOnes n = forM [0..n] s where s i = do x <- [| one $(sNat i) :: List $(nat i) (List $(nat i) Integer) |]; return $ FunD (mkName $ 'i' : show i) [Clause [] (NormalB x) []]

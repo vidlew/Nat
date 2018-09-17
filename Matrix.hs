@@ -9,9 +9,12 @@ module Matrix where
 import Nat
 import TemplateNat
 
--- Generate singetons and ones for 0 through n
--- E.g., s2 is SS $ SS SZ and i2 is the 2×2 identity matrix
-$(let n = 63 in do x <- genNats n; y <- genOnes n; return $ x++y)
+-- Generate type synonyms, singetons, and identity matrices for 0 through n
+-- E.g., N2 is S (S Z)), s2 is SS $ SS SZ, and i2 is the 2×2 identity matrix
+$(let n = 63 in do x <- genNats n; y <- genSNats n; z <- genOnes n; return $ x++y++z)
+
+type Matrix m n a = List m (List n a)
+type Square n a = Matrix n n a
 
 matrixPlus :: Num a => Matrix m n a -> Matrix m n a -> Matrix m n a
 x `matrixPlus` y = ((uncurry (+))<$>) . uncurry fasten <$> fasten x y
@@ -31,11 +34,14 @@ rTimes :: (Num a, KnownNat n, Foldable (List m)) => List m a -> Matrix m n a -> 
 x `rTimes` y = transpose y `lTimes` x
 
 -- Tensor product of vectors
+-- Basic vectors for the tensor product of two vector spaces are ordered pairs of basis vectors in lexicographic order
+-- Associative, not commutative
 tens :: Num a => List m a -> List n a -> List (m:*n) a
 u `tens` v = uncurry (*) <$> (flatten $ u `cross` v)
 
 -- Matrix tensor product, aka Kronecker product
 -- Satisfies the identity (x⊗y) `lTimes` (u`tens`v) = (x`lTimes`u) `tens` (y`lTimes`v)
+-- Associative, not commutative
 (⊗) :: (Num a) => Matrix k l a -> Matrix m n a -> Matrix (k:*m) (l:*n) a
 x⊗y = flatten <$> (flatten $ ((((uncurry (*))<$>)<$>)<$>) . ((uncurry cross)<$>) <$> x`cross`y)
 otimes :: (Num a) => List k (List l a) -> List m (List n a) -> List (k:*m) (List (l:*n) a)
@@ -44,6 +50,7 @@ otimes = (⊗)
 -- Matrix direct sum
 -- Satisfies the identity (x⊕y) `lTimes` (u.+v) = (x`lTimes`u) .+ (y`lTimes`v)
 -- ((.+) is the direct sum of vectors)
+-- Associative, not commutative
 (⊕) :: (Num a, KnownNat l, KnownNat n) => Matrix k l a -> Matrix m n a -> Matrix (k:+m) (l:+n) a
 x⊕y = ((.+(first $ pure 0:-y)) <$> x) .+ (((first $ pure 0:-x).+) <$> y)
 oplus :: (Num a, KnownNat l, KnownNat n) => List k (List l a) -> List m (List n a) -> List (k:+m) (List (l:+n) a)
@@ -52,6 +59,7 @@ oplus = (⊕)
 -- Kronecker sum or tensor sum, x⊗1 + 1⊗y
 -- Defined for any two square matrices
 -- Satisfies the identity (x`kroneckerPlus`y) `lTimes` (u`tens`v) = ((x`lTimes`u) `tens` v) `vectorPlus` (u `tens` (y`lTimes v))
+-- Associative, not commutative
 kroneckerPlus :: (Num a, Num (Square m a), Num (Square n a), Num (Square (m:*n) a)) => Square m a -> Square n a -> Square (m:*n) a
 x `kroneckerPlus` y = (x⊗(first $ 1:-y:-E)) + ((first $ 1:-x:-E)⊗y)
 
@@ -61,13 +69,11 @@ x `kroneckerPlus` y = (x⊗(first $ 1:-y:-E)) + ((first $ 1:-x:-E)⊗y)
 -- Unlike other matrix operations, not basis invariant
 -- The identity for the Hadamard product is (pure $ pure 1)
 -- Satisfies the identity (x⊗y)○(z⊗w) = (x○z)⊗(y○w)
+-- Associative and commutative
 (○) :: (Num a) => Matrix m n a -> Matrix m n a -> Matrix m n a
 x○y = ((uncurry (*))<$>) . uncurry fasten <$> fasten x y
 hadamardTimes :: (Num a) => Matrix m n a -> Matrix m n a -> Matrix m n a
 hadamardTimes = (○)
-
-type Matrix m n a = List m (List n a)
-type Square n a = Matrix n n a
 
 permanent :: (Num a, KnownNat n, Foldable (List n), Foldable (List (Power n))) => Square n a -> a
 permanent x = sum $ (\(Set s,p) -> (if p == Even then id else negate) $ product $ sum . FinList <$> (transpose $ choose s x)) <$> (\n -> fasten (setList n) (pars n)) knownNat where
@@ -138,7 +144,7 @@ instance (Fractional a, KnownNat n, KnownNat (S n), Num (Square (S n) a), Num (S
 
 -- Exterior product of a list of k vectors
 -- List of determinants of all k×k submatrices
--- Basis vectors of k-th exterior power are lists of k distinct basis vectors in lexicographic order
+-- Basis vectors of k-th exterior power are sets of k basis vectors in lexicographic order
 -- For example, the 2nd exterior power of a 3-dimensional vector space with ordered basis i,j,k has an ordered basis ij,ik,jk
 -- The cross product in three dimensions is just the exterior product with i, j, and k identfied with jk, ki = -ik, and  ij respectively
 exteriorProduct :: (Num a, Num (Square k a), KnownNat k, KnownNat n, Foldable (List k)) => List k (List n a) -> List (Choose n k) a
@@ -150,7 +156,8 @@ exteriorPower :: (Num a, Num (Square k a), KnownNat k, KnownNat m, KnownNat n, F
 exteriorPower m k = (determinant<$>) . ((\(os,ws) -> (<$>ws) . (!) . (m!) <$> os)<$>) <$> (combToList <$> combList knownNat k) `cross` (combToList <$> combList knownNat k)
 
 -- Symmetric product of a list of k vectors
--- Basis vectors of k-th symmetric power are lists of k basis vectors in lexicographic order
+-- Basis vectors of k-th symmetric power are multisets of k basis vectors in lexicographic order
+-- For example, the 2nd symmetric power of a 3-dimensional vector space with ordered basis i,j,k has an ordered basis ii,ij,ik,jj,jk,kk
 symmetricProduct :: (Num a, KnownNat k, KnownNat n, Foldable (List k), Foldable (List (Factorial k)), Ord (FinOrd k))
                  => List k (List n a) -> List (MultiChoose n k) a
 symmetricProduct l = (\c -> semipermanent (f c) $ (\x -> (x!) <$> c) <$> l) . multiCombToList <$> multiCombList knownNat knownNat where
