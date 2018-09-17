@@ -149,6 +149,22 @@ instance Alternative FinList where
 
 instance MonadPlus FinList
 
+grabWhile :: (a -> Bool) -> FinList a -> FinList a
+grabWhile _ (FinList E) = empty
+grabWhile p (FinList (x:-xs)) = if p x then return x <> (grabWhile p $ FinList xs) else empty
+
+loseWhile :: (a -> Bool) -> FinList a -> FinList a
+loseWhile _ (FinList E) = empty
+loseWhile p (FinList (x:-xs)) = if p x then loseWhile p $ FinList xs else FinList $ x:-xs
+
+split :: (Eq a) => FinList a -> FinList (FinList a)
+split (FinList E) = empty
+split (FinList (x:-xs)) = return (grabWhile (x==) $ FinList $ x:-xs) <> (split $ loseWhile (x==) $ FinList xs)
+
+splitWith :: (a -> a -> Bool) -> FinList a -> FinList (FinList a)
+splitWith _ (FinList E) = empty
+splitWith p (FinList (x:-xs)) = return (grabWhile (p x) $ FinList $ x:-xs) <> (splitWith p $ loseWhile (p x) $ FinList xs)
+
 --rev :: FinList a -> FinList a
 --rev (FinList E)       = FinList E
 --rev (FinList (x:-xs)) = (rev $ FinList xs) <> pure x
