@@ -9,8 +9,9 @@ module Matrix where
 import Nat
 import TemplateNat
 
-$(genNats 127)
-$(genOnes 127)
+-- Generate singetons and ones for 0 through n
+-- E.g., s2 is SS $ SS SZ and i2 is the 2×2 identity matrix
+$(let n = 63 in do x <- genNats n; y <- genOnes n; return $ x++y)
 
 matrixPlus :: Num a => Matrix m n a -> Matrix m n a -> Matrix m n a
 x `matrixPlus` y = ((uncurry (+))<$>) . uncurry fasten <$> fasten x y
