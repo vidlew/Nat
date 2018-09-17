@@ -47,7 +47,7 @@ oplus = (⊕)
 
 -- Kronecker sum or tensor sum, x⊗1 + 1⊗y
 -- Defined for any two square matrices
--- Satisfies the identity (x`kroneckerPlus`y) `lTimes` (u`tens`v) = ((x`lTimes`u) `tens` v) `matrixPlus` (u `tens` (y`lTimes v))
+-- Satisfies the identity (x`kroneckerPlus`y) `lTimes` (u`tens`v) = (uncurry (+)) <$> fasten ((x`lTimes`u) `tens` v) (u `tens` (y`lTimes v))
 kroneckerPlus :: (Num a, Num (Square m a), Num (Square n a), Num (Square (m:*n) a)) => Square m a -> Square n a -> Square (m:*n) a
 x `kroneckerPlus` y = (x⊗(first $ 1:-y:-E)) + ((first $ 1:-x:-E)⊗y)
 
