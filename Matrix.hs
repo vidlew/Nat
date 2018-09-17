@@ -35,6 +35,7 @@ x `rTimes` y = transpose y `lTimes` x
 
 -- Tensor product of vectors
 -- Basic vectors for the tensor product of two vector spaces are ordered pairs of basis vectors in lexicographic order
+-- For example, if V has ordered basis i,j and W has ordered basis k,l, then V⊗W has an ordered basis i⊗k,i⊗l,j⊗k,j⊗l
 -- Associative, not commutative
 tens :: Num a => List m a -> List n a -> List (m:*n) a
 u `tens` v = uncurry (*) <$> (flatten $ u `cross` v)
@@ -115,13 +116,13 @@ instance Num a => Num (Square Z a) where{
 ;   abs E         = E
 ;   signum E      = E
 }
-
+ 
 instance (Num a, KnownNat (S n), Foldable (List (S n))) => Num (Square (S n) a) where{
     (+)           = matrixPlus
 ;   (*)           = matrixTimes
 ;   fromInteger k = (\x -> insert x (fromInteger k) $ rest $ pure 0) <$> finOrdList knownNat
 ;   negate        = ((negate<$>)<$>)
-;   abs m          = (\x -> insert x (determinant m) $ rest $ pure 0) <$> finOrdList knownNat
+;   abs m         = (\x -> insert x (determinant m) $ rest $ pure 0) <$> finOrdList knownNat
 }
 
 one :: Num (Square n a) => SNat n -> Square n a
