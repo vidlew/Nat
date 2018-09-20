@@ -11,7 +11,7 @@ import TemplateNat
 
 -- Generate type synonyms, singetons, and identity matrices for 0 through n
 -- E.g., N2 is S (S Z)), s2 is SS $ SS SZ, and i2 is the 2×2 identity matrix
-$(let n = 63 in do x <- genNats n; y <- genSNats n; z <- genOnes n; return $ x++y++z)
+$(let n = 127 in do x <- genNats n; y <- genSNats n; z <- genOnes n; return $ x++y++z)
 
 type Matrix m n a = List m (List n a)
 type Square n a = Matrix n n a
@@ -57,7 +57,7 @@ x⊕y = ((.+(first $ pure 0:-y)) <$> x) .+ (((first $ pure 0:-x).+) <$> y)
 oplus :: (Num a, KnownNat l, KnownNat n) => List k (List l a) -> List m (List n a) -> List (k:+m) (List (l:+n) a)
 oplus = (⊕)
 
--- Kronecker sum or tensor sum, x⊗1 + 1⊗y
+-- Matrix Kronecker sum or tensor sum, x⊗1 + 1⊗y
 -- Defined for any two square matrices
 -- Satisfies the identity (x`kroneckerPlus`y) `lTimes` (u`tens`v) = ((x`lTimes`u) `tens` v) `vectorPlus` (u `tens` (y`lTimes v))
 -- Associative, not commutative
@@ -125,9 +125,6 @@ instance (Num a, KnownNat (S n), Foldable (List (S n))) => Num (Square (S n) a) 
 ;   abs m         = (\x -> insert x (determinant m) $ rest $ pure 0) <$> finOrdList knownNat
 }
 
-one :: Num (Square n a) => SNat n -> Square n a
-one _ = 1
-
 instance Fractional a => Fractional (Square Z a) where{
     fromRational _ = E
 ;   recip E        = E
@@ -164,6 +161,7 @@ symmetricProduct :: (Num a, KnownNat k, KnownNat n, Foldable (List k), Foldable 
 symmetricProduct l = (\c -> semipermanent (f c) $ (\x -> (x!) <$> c) <$> l) . multiCombToList <$> multiCombList knownNat knownNat where
                f :: (KnownNat k, Eq a) => List k a -> FinList (FinList (FinOrd k))
                f l = (snd<$>) <$> (splitWith (\(x,_) (y,_) -> x==y) $ FinList $ fasten l $ finOrdList knownNat)
+               -- Given a partition, takes one permutation from every coset of the subgroup that preserves the partition
                semipermanent :: (Num a, KnownNat n, Foldable (List n), Foldable (List (Factorial n)), Ord (FinOrd n)) => FinList (FinList (FinOrd n)) -> Square n a -> a
                semipermanent q x = sum $ (\p -> if f q p then (product . (<*>x) . ((flip (!))<$>) $ permToList p) else 0) <$> permList knownNat where
                   f :: (Ord (FinOrd n), KnownNat n) => FinList (FinList (FinOrd n)) -> Permutation n -> Bool
@@ -213,3 +211,25 @@ multiCombToList :: MultiComb n k -> List k (FinOrd n)
 multiCombToList EM     = E
 multiCombToList (XM m) = OZ :- multiCombToList m
 multiCombToList (OM m) = OS <$> multiCombToList m
+
+instance Num a => Num (Triangle Z a) where{
+      fromInteger _ = ET
+    ; ET + ET = ET
+    ; ET * ET = ET
+    ; negate ET = ET
+    ; abs ET = ET
+    ; signum ET = ET
+}
+
+instance (Num a, Num (Triangle n a), KnownNat n) => Num (Triangle (S n) a) where{
+      fromInteger n = ((fromInteger n):-(rep knownNat 0)) :-: fromInteger n
+    ; (x:-:xs) + (y:-:ys) = (x`vectorPlus`y) :-: (xs+ys)
+    ; (x:-:xs) * (y:-:ys) = f x (y:-:ys) :-: xs*ys where f :: Num a => List n a -> Triangle n a -> List n a
+                                                         f (x:-xx) ((y:-yy):-:ys) = (x*y):-(fmap (x*) yy `vectorPlus` f xx ys)
+                                                         f E ET = E
+    ; negate = fmap negate
+}
+
+triangleToSquare :: Num a => Triangle n a -> Square n a
+triangleToSquare ET = E
+triangleToSquare (x:-:xs) = x :- ((0:-) <$> triangleToSquare xs)

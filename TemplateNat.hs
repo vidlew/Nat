@@ -20,6 +20,10 @@ mkMatrix :: Lift a => [[a]] -> Q Exp
 mkMatrix [] = [| E |]
 mkMatrix (x:xs) = [| $(mkList x) :- $(mkMatrix xs)|]
 
+mkTriangle :: Lift a => [[a]] -> Q Exp
+mkTriangle [] = [| ET |]
+mkTriangle (x:xs) = [| $(mkList x) :-: $(mkTriangle xs) |]
+
 sNat :: Int -> Q Exp
 sNat 0 = [| SZ |]
 sNat n = [| SS $(sNat $ n-1) |]
@@ -35,4 +39,4 @@ genNats :: Int -> Q [Dec]
 genNats n = forM [0..n] s where s i = do x <- nat i; return $ TySynD (mkName $ 'N':show i) [] x
 
 genOnes :: Int -> Q [Dec]
-genOnes n = forM [0..n] s where s i = do x <- [| one $(sNat i) :: List $(nat i) (List $(nat i) Integer) |]; return $ FunD (mkName $ 'i' : show i) [Clause [] (NormalB x) []]
+genOnes n = forM [0..n] s where s i = do x <- [| 1 :: Num a => List $(nat i) (List $(nat i) a) |]; return $ FunD (mkName $ 'i' : show i) [Clause [] (NormalB x) []]

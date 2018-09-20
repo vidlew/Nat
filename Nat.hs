@@ -478,6 +478,25 @@ sNatVal :: (Num a) => SNat n -> a
 sNatVal SZ     = 0
 sNatVal (SS n) = 1+(sNatVal n)
 
+infixr 5 :-:
+data Triangle n a where
+    ET :: Triangle Z a
+    (:-:) :: List (S n) a -> Triangle n a -> Triangle (S n) a
+deriving instance Eq a => Eq (Triangle n a)
+instance Show a => Show (Triangle Z a) where
+    show ET = ""
+instance (Show a, Show (List (S n) a), Show (Triangle n a)) => Show (Triangle (S n) a) where
+    show (r:-:t) = show r ++ (if (length $ show t) == 0 then show t else '\n':show t)
+instance Functor (Triangle n) where
+    fmap _ ET = ET
+    fmap f (x:-:xs) = (f<$>x):-:(f<$>xs)
+instance Applicative (Triangle Z) where
+    pure _ = ET
+    ET <*> ET = ET
+instance (Applicative (List (S n)), Applicative (Triangle n)) => Applicative (Triangle (S n)) where
+    pure x = pure x :-: pure x
+    (f:-:fs) <*> (x:-:xs) = (f<*>x) :-: (fs<*>xs)
+
 --data SomeNat = forall n. SomeNat (SNat n)
 data SomeNat where
     SomeNat :: SNat n -> SomeNat
