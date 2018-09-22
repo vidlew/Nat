@@ -6,6 +6,12 @@ import Nat
 import TemplateNat
 import Matrix
 
+-- Think of Tropical x as ∞^x.
+-- ∞^x + ∞^y = ∞^(max x y) because t^x + t^y ≈ t^(max x y) when t is very large.
+-- To be more precise, suppose x>=y. Then t^x <= t^x + t^y <= 2t^x = t^(x + log_t 2),
+--  so t^x + t^y = t^(x + o(1)) as t -> ∞.
+-- (∞^x) * (∞^y) = ∞^(x+y)
+-- MInf represents ∞^-∞ = 0
 data Tropical a where
     MInf :: (Ord a, Num a) => Tropical a
     Tropical :: (Ord a, Num a) => a -> Tropical a
@@ -14,8 +20,7 @@ deriving instance Eq a => Eq (Tropical a)
 
 instance (Num a, Ord a) => Num (Tropical a) where{
       fromInteger 0               = MInf
-    ; fromInteger 1               = Tropical 0
-    ; fromInteger _               = error "positive infinity"
+    ; fromInteger _               = Tropical 0
     ; MInf         + y            = y
     ; x            + MInf         = x
     ; (Tropical x) + (Tropical y) = Tropical $ max x y
