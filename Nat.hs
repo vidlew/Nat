@@ -478,7 +478,7 @@ sNatVal :: (Num a) => SNat n -> a
 sNatVal SZ     = 0
 sNatVal (SS n) = 1+(sNatVal n)
 
-infixr 5 :-:
+infixr 4 :-:
 data Triangle n a where
     ET :: Triangle Z a
     (:-:) :: List (S n) a -> Triangle n a -> Triangle (S n) a
