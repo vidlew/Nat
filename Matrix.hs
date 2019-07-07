@@ -1,33 +1,34 @@
 {-# LANGUAGE GADTs, DataKinds, TypeOperators, KindSignatures, TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances, FlexibleContexts, UndecidableInstances, StandaloneDeriving #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell, Rank2Types #-}
 
 {-# OPTIONS_GHC -freduction-depth=0 #-}
 
 module Matrix where
 
 import Nat
+import NonEmptyFinite
 import TemplateNat
 
 -- Generate type synonyms, singetons, and identity matrices for 0 through n
 -- E.g., N2 is S (S Z)), s2 is SS $ SS SZ, and i2 is the 2×2 identity matrix
-$(let n = 127 in do x <- genNats n; y <- genSNats n; z <- genOnes n; return $ x++y++z)
+$(let n = 63 in do x <- genNats n; y <- genSNats n; z <- genOnes n; return $ x++y++z)
 
 type Matrix m n a = List m (List n a)
 type Square n a = Matrix n n a
 
 matrixPlus :: Num a => Matrix m n a -> Matrix m n a -> Matrix m n a
-x `matrixPlus` y = ((uncurry (+))<$>) . uncurry fasten <$> fasten x y
+x `matrixPlus` y = fmap (uncurry (+)) . uncurry fasten <$> fasten x y
 
 matrixTimes :: (Num a, KnownNat m, Foldable (List l)) => Matrix k l a -> Matrix l m a -> Matrix k m a
-x `matrixTimes` y =  (sum<$>) . (((uncurry (*))<$>)<$>) . ((uncurry fasten)<$>) <$> x `cross` transpose y
+x `matrixTimes` y =  fmap sum . fmap (fmap (uncurry (*))) . fmap (uncurry fasten) <$> x `cross` transpose y
 
 vectorPlus :: Num a => List n a -> List n a -> List n a
 u `vectorPlus` v = (uncurry (+)) <$> fasten u v
 
 -- Multiply a vector by a matrix on the left
 lTimes :: (Num a, Foldable (List n)) => Matrix m n a -> List n a -> List m a
-x `lTimes` y = sum . ((uncurry (*))<$>) . fasten y <$> x
+x `lTimes` y = sum . fmap (uncurry (*)) . fasten y <$> x
 
 -- Multiply a vector by a matrix on the right
 rTimes :: (Num a, KnownNat n, Foldable (List m)) => List m a -> Matrix m n a -> List n a
@@ -44,7 +45,7 @@ u `tens` v = uncurry (*) <$> (flatten $ u `cross` v)
 -- Satisfies the identity (x⊗y) `lTimes` (u`tens`v) = (x`lTimes`u) `tens` (y`lTimes`v)
 -- Associative, not commutative
 (⊗) :: (Num a) => Matrix k l a -> Matrix m n a -> Matrix (k:*m) (l:*n) a
-x⊗y = flatten <$> (flatten $ ((((uncurry (*))<$>)<$>)<$>) . ((uncurry cross)<$>) <$> x`cross`y)
+x⊗y = flatten <$> (flatten $ fmap (fmap (fmap (uncurry (*)))) . fmap (uncurry cross) <$> x`cross`y)
 otimes :: (Num a) => List k (List l a) -> List m (List n a) -> List (k:*m) (List (l:*n) a)
 otimes = (⊗)
 
@@ -72,7 +73,7 @@ x `kroneckerPlus` y = (x⊗(first $ 1:-y:-E)) + ((first $ 1:-x:-E)⊗y)
 -- Satisfies the identity (x⊗y)○(z⊗w) = (x○z)⊗(y○w)
 -- Associative and commutative
 (○) :: (Num a) => Matrix m n a -> Matrix m n a -> Matrix m n a
-x○y = ((uncurry (*))<$>) . uncurry fasten <$> fasten x y
+x○y = fmap (uncurry (*)) . uncurry fasten <$> fasten x y
 hadamardTimes :: (Num a) => Matrix m n a -> Matrix m n a -> Matrix m n a
 hadamardTimes = (○)
 
@@ -133,11 +134,11 @@ instance Fractional a => Fractional (Square Z a) where{
 instance (Fractional a, KnownNat n, KnownNat (S n), Num (Square (S n) a), Num (Square n a), Foldable (List n)) => Fractional (Square (S n) a) where{
     fromRational k = (\x -> insert x (fromRational k) $ rest $ pure 0) <$> finOrdList knownNat
 -- Very slow implementation of recip based on Cramer's rule.
-;   recip x        = ((/(determinant x))<$>) <$> c where c = ((\(i,j) -> (f i j) * (determinant $ delete i <$> delete j x))<$>) <$> ((finOrdList knownNat) `cross` (finOrdList knownNat))
-                                                         f :: Num a => FinOrd k -> FinOrd l -> a
-                                                         f OZ     OZ     = 1
-                                                         f (OS o) w      = -(f o w)
-                                                         f o      (OS w) = -(f o w)
+;   recip x        = fmap (/determinant x) <$> c where c = ((\(i,j) -> (f i j) * (determinant $ delete i <$> delete j x))<$>) <$> ((finOrdList knownNat) `cross` (finOrdList knownNat))
+                                                       f :: Num a => FinOrd k -> FinOrd l -> a
+                                                       f OZ     OZ     = 1
+                                                       f (OS o) w      = -(f o w)
+                                                       f o      (OS w) = -(f o w)
 }
 
 -- Exterior product of a list of k vectors
@@ -151,7 +152,7 @@ exteriorProduct l = determinant . (\os -> (\x -> (x!) <$> os) <$> l) . combToLis
 -- k-th exterior power of a linear map
 -- Satisfies the identity (exteriorPower m k) `lTimes` (exteriorProduct l) = exteriorProduct $ (m`lTimes`) <$> l whenever l has length k
 exteriorPower :: (Num a, Num (Square k a), KnownNat k, KnownNat m, KnownNat n, Foldable (List k)) => Matrix m n a -> SNat k -> Matrix (Choose m k) (Choose n k) a
-exteriorPower m k = (determinant<$>) . ((\(os,ws) -> (<$>ws) . (!) . (m!) <$> os)<$>) <$> (combToList <$> combList knownNat k) `cross` (combToList <$> combList knownNat k)
+exteriorPower m k = fmap determinant . ((\(os,ws) -> (<$>ws) . (!) . (m!) <$> os)<$>) <$> (combToList <$> combList knownNat k) `cross` (combToList <$> combList knownNat k)
 
 -- Symmetric product of a list of k vectors
 -- Basis vectors of k-th symmetric power are multisets of k basis vectors in lexicographic order
@@ -188,6 +189,8 @@ setList :: SNat n -> List (Power n) (Set n)
 setList SZ = (Set EC):-E
 setList (SS n) = ((\(Set s) -> Set $ O s) <$> setList n) .+ ((\(Set s) -> Set $ X s) <$> setList n)
 
+-- Number of multisets of [n] with k elements
+-- Pascal's triangle, rotated 45 degrees anticlockwise, with a 1 followed by a row of 0's on top
 type family MultiChoose (n :: Nat) (k :: Nat) :: Nat
 type instance MultiChoose n     Z     = S Z
 type instance MultiChoose Z     (S k) = Z
@@ -230,6 +233,27 @@ instance (Num a, Num (Triangle n a), KnownNat n) => Num (Triangle (S n) a) where
     ; negate = fmap negate
 }
 
+infixr 4 <?>
+(<?>) :: (forall n. List n a -> List n a) -> Triangle n a -> Triangle n a
+_ <?> ET     = ET
+f <?> x:-:xs = f x :-: f <?> xs
+
 triangleToSquare :: Num a => Triangle n a -> Square n a
 triangleToSquare ET = E
 triangleToSquare (x:-:xs) = x :- ((0:-) <$> triangleToSquare xs)
+
+sortSquare :: Ord a => Square n a -> Permutation n
+sortSquare E = EP
+sortSquare (x@(_:-_)) = i :# (sortSquare $ rest <$> delete i x) where y = first <$> x
+                                                                      i = f y
+                                                                      f :: Ord a => List (S n) a -> FinOrd (S n)
+                                                                      f (_:-E) = OZ
+                                                                      f (x:-xx:-xs) = if False `isIn` ((<=x) <$> xx:-xs) then OS $ f $ xx:-xs else OZ
+
+--luFactor :: (Ord a, Fractional a, KnownNat n) => Square n a -> (Permutation n, Triangle n a, Triangle n a)
+--luFactor E        = (EP,ET,ET)
+--luFactor x@(_:-_) = (p,l,u) where p = sortSquare $ fmap abs <$> x
+--                                  y = permute (inverse p) x
+--                                  (l,u) = gauss (applyAt OZ (const 1) $ pure 0) x
+--                                  gauss :: Fractional a => List n a -> Square n a -> (Triangle n a, Triangle n a)
+--                                  gauss k (x:-xs) = (k :-: ((\(y:-ys) -> ys `vectorPlus` ((*(y/first x))<$> rest x)) <?> l'),x:-:u') where (l',u') = gauss (butFinal k) $ (\(y:-ys) -> ys `vectorPlus` ((*(negate y/first x)) <$> rest x)) <$> xs

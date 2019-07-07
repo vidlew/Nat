@@ -11,13 +11,19 @@ import Control.Applicative
 import Control.Monad
 import Data.Maybe (fromJust)
 
-data Nat = Z | S Nat
+data Nat = Z | S Nat deriving (Show, Eq)
 
 data SNat n where
     SZ :: SNat Z
     SS :: (SNat n) -> (SNat (S n))
 deriving instance Show (SNat n)
 deriving instance Eq (SNat n)
+
+data SBool b where
+    STrue  :: SBool True
+    SFalse :: SBool False
+deriving instance Show (SBool b)
+deriving instance Eq (SBool b)
 
 addSingleton :: SNat m -> SNat n -> SNat (m:+n)
 SZ     `addSingleton` n = n
@@ -54,6 +60,23 @@ instance (Num (FinOrd n)) => Num (FinOrd (S n)) where{
                                 --      i OZ     = OZ
                                 --      i (OS n) = OS $ i n
 ;   _-_             = error "negative ordinal"
+}
+
+instance Enum (FinOrd Z)
+
+instance (Enum (FinOrd n)) => Enum (FinOrd (S n)) where{
+    toEnum 0 = OZ
+;   toEnum n = OS $ toEnum $ n-1
+;   fromEnum OZ = 0
+;   fromEnum (OS n) = 1 + fromEnum n
+}
+
+instance (Num (FinOrd n), Enum (FinOrd n), Ord (FinOrd n)) => Real (FinOrd n) where
+    toRational = toRational . fromEnum
+
+instance (Real (FinOrd n), Enum (FinOrd n)) => Integral (FinOrd n) where{
+    toInteger = toInteger . fromEnum
+;   quotRem m n = if m < n then (0,m) else let (a,b) = quotRem (m-n) n in (a+1,b)
 }
 
 instance Ord (FinOrd Z)
@@ -218,6 +241,10 @@ type instance (S m):+n = S (m:+n)
 type family (m :: Nat) :* (n :: Nat) :: Nat
 type instance Z:*n     = Z
 type instance (S m):*n = n:+(m:*n)
+
+type family (m :: Nat) :^ (n :: Nat) :: Nat
+type instance m:^Z     = S Z
+type instance m:^(S n) = m:*(m:^n)
 
 flatten :: List m (List n a) -> List (m:*n) a
 flatten E       = E
@@ -470,6 +497,85 @@ type instance Lah Z     (S k) = Z
 type instance Lah (S n) Z     = Z
 type instance Lah (S n) (S k) = ((n:+(S k)):*(Lah n (S k))) :+ (Lah n k)
 
+-- Minimum of two natural numbers
+type family Min (m :: Nat) (n :: Nat) :: Nat
+type instance Min Z n = Z
+type instance Min m Z = Z
+type instance Min (S m) (S n) = S (Min m n)
+
+-- Absolute difference between two natural numbers
+type family Difference (m :: Nat) (n :: Nat) :: Nat
+type instance Difference Z n = n
+type instance Difference m Z = m
+type instance Difference (S m) (S n) = Difference m n
+
+-- Greatest common divisor of two natural numbers
+type family GCD (m :: Nat) (n :: Nat) :: Nat
+type instance GCD Z n = n
+type instance GCD m Z = m
+type instance GCD (S m) (S n) = GCD (Min (S m) (S n)) (Difference (S m) (S n))
+
+-- Maximum of m-n and 0
+type family Minus (m :: Nat) (n :: Nat) :: Nat
+type instance Minus Z n = Z
+type instance Minus m Z = m
+type instance Minus (S m) (S n) = Minus m n
+
+type family (:<=) (m :: Nat) (n :: Nat) :: Bool
+type instance (Z :<= n) = True
+type instance ((S m) :<= Z) = False
+type instance ((S m) :<= (S n)) = m :<= n
+
+type family Cond (c :: Bool) (m :: Nat) (n :: Nat) :: Nat
+type instance Cond True m n = m
+type instance Cond False m n = n
+
+type family (:&&) (p :: Bool) (q :: Bool) :: Bool
+type instance True :&& True = True
+type instance True :&& False = False
+type instance False :&& True = False
+type instance False :&& False = False
+
+type family (:||) (p :: Bool) (q :: Bool) :: Bool
+type instance True :|| True = True
+type instance True :|| False = True
+type instance False :|| True = True
+type instance False :|| False = False
+
+type family Not (p :: Bool) :: Bool
+type instance Not True = False
+type instance Not False = True
+
+-- Remainder when m is divided by n
+type family Mod (m :: Nat) (n :: Nat) :: Nat
+type instance Mod Z (S n) = Z
+type instance Mod (S m) (S n) = Cond ((S m) :<= n) (S m) (Mod (Minus m n) (S n))
+
+-- Quotient of m and n, rounded down
+type family Div (m :: Nat) (n :: Nat) :: Nat
+type instance Div Z (S n) = Z
+type instance Div (S m) (S n) = Cond ((S m) :<= n) Z (S (Div (Minus m n) (S n)))
+
+type family Coprime (m :: Nat) (n :: Nat) :: Bool
+type instance Coprime Z n = False
+type instance Coprime m Z = False
+type instance Coprime (S m) (S Z) = True
+type instance Coprime (S Z) (S n) = True
+type instance Coprime (S (S m)) (S (S n)) = Coprime (Min (S (S m)) (S (S n))) (Difference m n)
+
+type family IsPrimeLoop (m :: Nat) (n :: Nat) :: Bool
+type instance IsPrimeLoop m Z = False
+type instance IsPrimeLoop m (S Z) = True
+type instance IsPrimeLoop m (S (S n)) = (Coprime m (S (S n))) :&& (IsPrimeLoop m (S n))
+
+type family IsPrime (n :: Nat) :: Bool
+type instance IsPrime Z = False
+type instance IsPrime (S n) = IsPrimeLoop (S n) (Div (S n) (S (S Z)))
+--type instance IsPrime (S n) = IsPrimeLoop (S n) n
+
+data Ratio m n where
+    (:%) :: SNat m -> SNat n -> Ratio (Div m (GCD m n)) (Div n (GCD m n))
+
 finOrdVal :: (Num a) => FinOrd n -> a
 finOrdVal OZ     = 0
 finOrdVal (OS o) = 1+(finOrdVal o)
@@ -519,3 +625,29 @@ instance Num SomeNat where{
 ;   (SomeNat (SS m)) - (SomeNat (SS n)) = SomeNat m - SomeNat n
 ;   _                - _                = error "Negative"
 }
+
+data PrimeField p where
+    FieldElement :: ((IsPrime p)~True) => FinOrd p -> PrimeField p
+deriving instance Show (PrimeField p)
+deriving instance Eq (PrimeField p)
+
+instance (KnownNat p, (IsPrime p)~True, Integral (FinOrd p)) => Num (PrimeField p) where
+    fromInteger n = f k $ FieldElement . fromInteger $ n `mod` sNatVal k where f :: SNat p -> PrimeField p -> PrimeField p
+                                                                               f _ x = x
+                                                                               k = knownNat
+    (FieldElement m) + (FieldElement n) = f k $ FieldElement . fromInteger $ (toInteger m + toInteger n) `mod` sNatVal k where f :: SNat p -> PrimeField p -> PrimeField p
+                                                                                                                               f _ x = x
+                                                                                                                               k = knownNat
+    (FieldElement m) * (FieldElement n) = f k $ FieldElement . fromInteger $ (toInteger m * toInteger n) `mod` sNatVal k where f :: SNat p -> PrimeField p -> PrimeField p
+                                                                                                                               f _ x = x
+                                                                                                                               k = knownNat
+    negate (FieldElement n) = fromInteger . negate $ toInteger n
+    abs      = id
+    signum 0 = 0
+    signum _ = 1
+
+instance (KnownNat p, Num (PrimeField p)) => Fractional (PrimeField p) where
+    recip 0 = error "divide by zero"
+    recip n = f k (^(sNatVal k - 2)) n where f :: SNat p -> (PrimeField p -> PrimeField p) -> PrimeField p -> PrimeField p
+                                             f _ x = x
+                                             k = knownNat
