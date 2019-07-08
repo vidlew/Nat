@@ -564,9 +564,14 @@ type instance Coprime (S Z) (S n) = True
 type instance Coprime (S (S m)) (S (S n)) = Coprime (Min (S (S m)) (S (S n))) (Difference m n)
 
 -- Floor of base 2 logarithm
-type family Log (n :: Nat) :: Nat
-type instance Log (S Z) = Z
-type instance Log (S (S n)) = S (Log (Div (S (S n)) (S (S Z))))
+type family FloorLog (n :: Nat) :: Nat
+type instance FloorLog (S Z) = Z
+type instance FloorLog (S (S n)) = S (FloorLog (Div (S (S n)) (S (S Z))))
+
+-- Ceiling of base 2 logarithm
+type family CeilLog (n :: Nat) :: Nat
+type instance CeilLog (S Z) = Z
+type instance CeilLog (S (S n)) = S (CeilLog (Div (S (S (S n))) (S (S Z))))
 
 type family SqrtLoop (n :: Nat) (r :: Nat) (l :: Nat) :: Nat
 type instance SqrtLoop n r Z = r
@@ -575,7 +580,7 @@ type instance SqrtLoop n r (S l) = SqrtLoop n (Div (n:+(r:*r)) (r:+r)) l
 -- Integer approximation of the square root of n
 type family Sqrt (n :: Nat) :: Nat
 type instance Sqrt Z = Z
-type instance Sqrt (S n) = SqrtLoop (S n) (S Z) (Log (S n))
+type instance Sqrt (S n) = SqrtLoop (S n) (S Z) (FloorLog (S n))
 
 type family IsPrimeLoop (m :: Nat) (n :: Nat) :: Bool
 type instance IsPrimeLoop m Z = False
@@ -584,8 +589,8 @@ type instance IsPrimeLoop m (S (S n)) = (Coprime m (S (S n))) :&& (IsPrimeLoop m
 
 type family IsPrime (n :: Nat) :: Bool
 type instance IsPrime Z = False
-type instance IsPrime (S n) = IsPrimeLoop (S n) (Div (S n) (S (S Z)))
---type instance IsPrime (S n) = IsPrimeLoop (S n) n
+--type instance IsPrime (S n) = IsPrimeLoop (S n) (Div (S n) (S (S Z)))
+type instance IsPrime (S n) = IsPrimeLoop (S n) (Power (Div (S (CeilLog n)) (S (S Z))))
 
 infixr 5 :%
 data ReducedFraction m n where
@@ -593,6 +598,11 @@ data ReducedFraction m n where
 deriving instance Eq (ReducedFraction m n)
 instance Show (ReducedFraction m n) where
     show (m:%n) = (show $ sNatVal m) ++ '/':(show $ sNatVal n)
+
+addFraction :: ((Coprime (Div ((a:*d):+(b:*c)) (GCD ((a:*d):+(b:*c)) (b:*d))) (Div (b:*d) (GCD ((a:*d):+(b:*c)) (b:*d))))~True,
+                 KnownNat (Div ((a:*d):+(b:*c)) (GCD ((a:*d):+(b:*c)) (b:*d))), KnownNat (Div (b:*d) (GCD ((a:*d):+(b:*c)) (b:*d)))) =>
+               ReducedFraction a b -> ReducedFraction c d -> ReducedFraction (Div ((a:*d):+(b:*c)) (GCD ((a:*d):+(b:*c)) (b:*d))) (Div (b:*d) (GCD ((a:*d):+(b:*c)) (b:*d)))
+addFraction _ _ = knownNat :% knownNat
 
 finOrdVal :: (Num a) => FinOrd n -> a
 finOrdVal OZ     = 0
@@ -646,7 +656,9 @@ instance Num SomeNat where{
 
 data PrimeField p where
     FieldElement :: ((IsPrime p)~True) => FinOrd p -> PrimeField p
-deriving instance Show (PrimeField p)
+--deriving instance Show (PrimeField p)
+instance Show (PrimeField p) where
+    show (FieldElement n) = show n
 deriving instance Eq (PrimeField p)
 
 instance (KnownNat p, (IsPrime p)~True, Integral (FinOrd p)) => Num (PrimeField p) where
