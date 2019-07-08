@@ -563,6 +563,20 @@ type instance Coprime (S m) (S Z) = True
 type instance Coprime (S Z) (S n) = True
 type instance Coprime (S (S m)) (S (S n)) = Coprime (Min (S (S m)) (S (S n))) (Difference m n)
 
+-- Floor of base 2 logarithm
+type family Log (n :: Nat) :: Nat
+type instance Log (S Z) = Z
+type instance Log (S (S n)) = S (Log (Div (S (S n)) (S (S Z))))
+
+type family SqrtLoop (n :: Nat) (r :: Nat) (l :: Nat) :: Nat
+type instance SqrtLoop n r Z = r
+type instance SqrtLoop n r (S l) = SqrtLoop n (Div (n:+(r:*r)) (r:+r)) l
+
+-- Integer approximation of the square root of n
+type family Sqrt (n :: Nat) :: Nat
+type instance Sqrt Z = Z
+type instance Sqrt (S n) = SqrtLoop (S n) (S Z) (Log (S n))
+
 type family IsPrimeLoop (m :: Nat) (n :: Nat) :: Bool
 type instance IsPrimeLoop m Z = False
 type instance IsPrimeLoop m (S Z) = True
@@ -573,8 +587,12 @@ type instance IsPrime Z = False
 type instance IsPrime (S n) = IsPrimeLoop (S n) (Div (S n) (S (S Z)))
 --type instance IsPrime (S n) = IsPrimeLoop (S n) n
 
-data Ratio m n where
-    (:%) :: SNat m -> SNat n -> Ratio (Div m (GCD m n)) (Div n (GCD m n))
+infixr 5 :%
+data ReducedFraction m n where
+    (:%) :: ((Coprime m n)~True) => SNat m -> SNat n -> ReducedFraction m n
+deriving instance Eq (ReducedFraction m n)
+instance Show (ReducedFraction m n) where
+    show (m:%n) = (show $ sNatVal m) ++ '/':(show $ sNatVal n)
 
 finOrdVal :: (Num a) => FinOrd n -> a
 finOrdVal OZ     = 0
@@ -646,8 +664,12 @@ instance (KnownNat p, (IsPrime p)~True, Integral (FinOrd p)) => Num (PrimeField 
     signum 0 = 0
     signum _ = 1
 
+-- fromRational only makes sense for fields of characteristic 0
 instance (KnownNat p, Num (PrimeField p)) => Fractional (PrimeField p) where
     recip 0 = error "divide by zero"
     recip n = f k (^(sNatVal k - 2)) n where f :: SNat p -> (PrimeField p -> PrimeField p) -> PrimeField p -> PrimeField p
                                              f _ x = x
                                              k = knownNat
+
+modPrime :: (Num (PrimeField p)) => Integer -> SNat p -> PrimeField p
+modPrime n _ = fromInteger n
