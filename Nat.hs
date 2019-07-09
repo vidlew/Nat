@@ -2,7 +2,7 @@
 
 {-# LANGUAGE GADTs, DataKinds, StandaloneDeriving, TypeFamilies, KindSignatures, TypeOperators #-}
 {-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, FlexibleContexts #-}
-{-# LANGUAGE UndecidableInstances, TupleSections #-}
+{-# LANGUAGE UndecidableInstances, TupleSections, IncoherentInstances #-}
 
 module Nat where
 
@@ -87,12 +87,24 @@ instance (Ord (FinOrd n)) => Ord (FinOrd (S n)) where
     compare _       OZ    = GT
     compare (OS m) (OS n) = compare m n
 
+type family IsList a :: Bool where
+    IsList (List n a) = True
+    IsList _ = False
+
 infixr 5 :-
 data List n a where
     E    :: List Z a
     (:-) :: a -> (List n a) -> List (S n) a
 --deriving instance (Show a) => Show (List n a)
-instance (Show a, Foldable (List n)) => Show (List n a) where show = show . (foldr (:) [])
+instance (Show a, Foldable (List n), (IsList a)~False) => Show (List n a) where show = show . (foldr (:) [])
+instance (Show a, Foldable (List m), Foldable (List n)) => Show (List m (List n a)) where
+    show l = f m l where m = foldr max 0 $ (foldr max 0) . ((length . show)<$>) <$> l
+                         f :: Show a => Int -> List m (List n a) -> String
+                         f _ E = ""
+                         f m (l:-ls) = '[':g m l ++ "]\n" ++ f m ls
+                         g :: Show a => Int -> List n a -> String
+                         g _ E = ""
+                         g m (k:-ks) = (take ((m-(length $ show k)+1)`div`2) $ cycle " ") ++ show k ++ (take ((m-(length $ show k)+2)`div`2) $ cycle " ") ++ g m ks
 deriving instance (Eq a) => Eq (List n a)
 
 (!) :: (List n a) -> (FinOrd n) -> a
