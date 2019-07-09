@@ -570,27 +570,24 @@ type instance FloorLog (S (S n)) = S (FloorLog (Div (S (S n)) (S (S Z))))
 
 -- Ceiling of base 2 logarithm
 type family CeilLog (n :: Nat) :: Nat
+type instance CeilLog Z = Z
 type instance CeilLog (S Z) = Z
 type instance CeilLog (S (S n)) = S (CeilLog (Div (S (S (S n))) (S (S Z))))
 
-type family SqrtLoop (n :: Nat) (r :: Nat) (l :: Nat) :: Nat
-type instance SqrtLoop n r Z = r
-type instance SqrtLoop n r (S l) = SqrtLoop n (Div (n:+(r:*r)) (r:+r)) l
+--type family IsPrimeLoop (m :: Nat) (n :: Nat) :: Bool
+--type instance IsPrimeLoop m Z = False
+--type instance IsPrimeLoop m (S Z) = True
+--type instance IsPrimeLoop m (S (S n)) = (Coprime m (S (S n))) :&& (IsPrimeLoop m (S n))
 
--- Integer approximation of the square root of n
-type family Sqrt (n :: Nat) :: Nat
-type instance Sqrt Z = Z
-type instance Sqrt (S n) = SqrtLoop (S n) (S Z) (FloorLog (S n))
-
-type family IsPrimeLoop (m :: Nat) (n :: Nat) :: Bool
-type instance IsPrimeLoop m Z = False
-type instance IsPrimeLoop m (S Z) = True
-type instance IsPrimeLoop m (S (S n)) = (Coprime m (S (S n))) :&& (IsPrimeLoop m (S n))
+type family IsPrimeLoop (m :: Nat) (n :: Nat) (k :: Nat) :: Bool
+type instance IsPrimeLoop m Z k = True
+type instance IsPrimeLoop m (S n) k = (Coprime m k) :&& (IsPrimeLoop m n (S k))
 
 type family IsPrime (n :: Nat) :: Bool
 type instance IsPrime Z = False
+type instance IsPrime (S Z) = False
 --type instance IsPrime (S n) = IsPrimeLoop (S n) (Div (S n) (S (S Z)))
-type instance IsPrime (S n) = IsPrimeLoop (S n) (Power (Div (S (CeilLog n)) (S (S Z))))
+type instance IsPrime (S (S n)) = IsPrimeLoop (S (S n)) (Power (Div (S (CeilLog (S n))) (S (S Z)))) (S Z)
 
 infixr 5 :%
 data ReducedFraction m n where
