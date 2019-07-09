@@ -12,7 +12,7 @@ import TemplateNat
 
 -- Generate type synonyms, singetons, and identity matrices for 0 through n
 -- E.g., N2 is S (S Z)), s2 is SS $ SS SZ, and i2 is the 2×2 identity matrix
-$(let n = 63 in do x <- genNats n; y <- genSNats n; z <- genOnes n; return $ x++y++z)
+$(let n = 63 in do x <- genNats n; y <- genSNats n; z <- genOnes n; w <- genZeroes n; return $ x++y++z++w)
 
 type Matrix m n a = List m (List n a)
 type Square n a = Matrix n n a

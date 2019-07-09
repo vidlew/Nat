@@ -40,3 +40,6 @@ genNats n = forM [0..n] s where s i = do x <- nat i; return $ TySynD (mkName $ '
 
 genOnes :: Int -> Q [Dec]
 genOnes n = forM [0..n] s where s i = do x <- [| 1 :: Num a => List $(nat i) (List $(nat i) a) |]; return $ FunD (mkName $ 'i' : show i) [Clause [] (NormalB x) []]
+
+genZeroes :: Int -> Q [Dec]
+genZeroes n = forM [0..n] s where s i = do x <- [| 0 :: Num a => List $(nat i) (List $(nat i) a) |]; return $ FunD (mkName $ 'o' : show i) [Clause [] (NormalB x) []]
