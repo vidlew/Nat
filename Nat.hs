@@ -100,7 +100,7 @@ instance (Show a, Foldable (List n), (IsList a)~False) => Show (List n a) where 
 instance ((IsList a)~False, Show a, Foldable (List m), Foldable (List n)) => Show (List m (List n a)) where
     show l = f m l where m = foldr max 0 $ (foldr max 0) . ((length . show)<$>) <$> l
                          f :: Show a => Int -> List m (List n a) -> String
-                         f _ E = ""
+                         f _ E = "[]"
                          f m (l:-E)  = '[':g m l ++ "]"
                          f m (l:-ls) = '[':g m l ++ "]\n" ++ f m ls
                          g :: Show a => Int -> List n a -> String
@@ -138,7 +138,7 @@ E .+ ys       = ys
 (x:-xs) .+ ys = x:-(xs.+ys)
 
 -- Lists that are guaranteed to be finite
--- FinList a is (more or less) the free monoid on a
+-- FinList a is (as close as you can get in Haskell to) the free monoid on a
 -- [a] is sometimes described as the free monoid on a, but this is fake news as [a] includes infinite lists
 --data FinList a = forall n. FinList (List n a)
 data FinList a where
