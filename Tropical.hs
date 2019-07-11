@@ -1,22 +1,24 @@
-{-# LANGUAGE GADTs, DataKinds, StandaloneDeriving, FlexibleContexts, FlexibleInstances #-}
+{-# LANGUAGE GADTs, DataKinds, StandaloneDeriving, FlexibleContexts, FlexibleInstances, DeriveLift, UndecidableInstances #-}
 
 module Tropical where
 
 import Nat
 import TemplateNat
 import Matrix
+import Language.Haskell.TH.Lift
 
 -- Think of Tropical x as ∞^x.
 -- ∞^x + ∞^y = ∞^(max x y) because t^x + t^y ≈ t^(max x y) when t is very large.
 -- To be more precise, suppose x>=y. Then t^x <= t^x + t^y <= 2t^x = t^(x + log_t 2),
 --  so t^x + t^y = t^(x + o(1)) as t -> ∞.
--- (∞^x) * (∞^y) = ∞^(x+y)
--- MInf represents ∞^-∞ = 0
+-- (∞^x) * (∞^y) = ∞^(x+y).
+-- MInf represents ∞^-∞ = 0.
 data Tropical a where
     MInf :: (Ord a, Num a) => Tropical a
     Tropical :: (Ord a, Num a) => a -> Tropical a
 deriving instance Show a => Show (Tropical a)
 deriving instance Eq a => Eq (Tropical a)
+deriving instance Lift a => Lift (Tropical a)
 
 instance (Num a, Ord a) => Num (Tropical a) where{
       fromInteger 0               = MInf
@@ -47,9 +49,10 @@ data PG n a where
     Infinity :: Num a => PG n a -> PG (S n) a
 --instance Show (PG Z a) where show (Affine E) = "Affine E"
 --deriving instance (Show a, Foldable (List (S n)), Show (PG n a)) => Show (PG (S n) a)
-instance (Show a, Num a, Foldable (List n)) => Show (PG n a) where show = show . toHomogeneousCoords
+instance (Num a, Show (List (S n) a)) => Show (PG n a) where show = show . toHomogeneousCoords
 deriving instance Eq a => Eq (PG n a)
 
+-- Homogeneous coordinates are normalised so the first nonzero coordinate is 1
 toHomogeneousCoords :: Num a => PG n a -> List (S n) a
 toHomogeneousCoords (Affine l) = 1 :- l
 toHomogeneousCoords (Infinity p) = 0 :- toHomogeneousCoords p
