@@ -2,7 +2,7 @@
 
 {-# LANGUAGE GADTs, DataKinds, StandaloneDeriving, TypeFamilies, KindSignatures, TypeOperators #-}
 {-# LANGUAGE MultiParamTypeClasses, FlexibleInstances, FlexibleContexts #-}
-{-# LANGUAGE UndecidableInstances, TupleSections, IncoherentInstances #-}
+{-# LANGUAGE UndecidableInstances, TupleSections, IncoherentInstances, PolyKinds #-}
 
 module Nat where
 
@@ -282,6 +282,10 @@ class KnownNat n where knownNat :: SNat n
 instance KnownNat Z where knownNat = SZ
 instance (KnownNat n) => KnownNat (S n) where knownNat = SS $ knownNat
 
+class KnownBool b where knownBool :: SBool b
+instance KnownBool True where knownBool = STrue
+instance KnownBool False where knownBool = SFalse
+
 transpose :: (KnownNat n) => List m (List n a) -> List n (List m a)
 transpose (E:-_)  = E
 transpose E       = pure E
@@ -540,7 +544,7 @@ type instance (Z :<= n) = True
 type instance ((S m) :<= Z) = False
 type instance ((S m) :<= (S n)) = m :<= n
 
-type family Cond (c :: Bool) (m :: Nat) (n :: Nat) :: Nat
+type family Cond (c :: Bool) (m :: a) (n :: a) :: a
 type instance Cond True m n = m
 type instance Cond False m n = n
 
@@ -622,6 +626,10 @@ finOrdVal (OS o) = 1+(finOrdVal o)
 sNatVal :: (Num a) => SNat n -> a
 sNatVal SZ     = 0
 sNatVal (SS n) = 1+(sNatVal n)
+
+sBoolVal :: SBool b -> Bool
+sBoolVal STrue = True
+sBoolVal SFalse = False
 
 infixr 4 :-:
 data Triangle n a where
