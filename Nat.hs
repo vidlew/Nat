@@ -140,9 +140,8 @@ E .+ ys       = ys
 -- Lists that are guaranteed to be finite
 -- FinList a is (as close as you can get in Haskell to) the free monoid on a
 -- [a] is sometimes described as the free monoid on a, but this is fake news as [a] includes infinite lists
---data FinList a = forall n. FinList (List n a)
-data FinList a where
-    FinList :: List n a -> FinList a
+data FinList a where FinList :: List n a -> FinList a
+-- This definition is essentially a dependent sum, 𝝨_(n:Nat) (List n a)
 --deriving instance Show a => Show (FinList a)
 instance (Show a) => Show (FinList a) where show = show . (foldr (:) [])
 instance (Eq a) => Eq (FinList a) where

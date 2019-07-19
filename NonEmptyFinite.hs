@@ -32,8 +32,7 @@ infixl 1 =>>
 (=>>) = flip extend
 
 --data NonEmptyFinite a = forall n. NonEmptyFinite (List (S n) a)
-data NonEmptyFinite a where
-    NonEmptyFinite :: List (S n) a -> NonEmptyFinite a
+data NonEmptyFinite a where NonEmptyFinite :: List (S n) a -> NonEmptyFinite a
 
 instance (Show a) => Show (NonEmptyFinite a) where show = show . (foldr (:) [])
 
