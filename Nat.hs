@@ -25,6 +25,40 @@ data SBool b where
 deriving instance Show (SBool b)
 deriving instance Eq (SBool b)
 
+instance Num Nat where
+    fromInteger 0 = Z
+    fromInteger n = S . fromInteger $ n-1
+    Z + n = n
+    (S m) + n = S $ m+n
+    Z * n = Z
+    (S m) * n = n + (m*n)
+    m - Z = m
+    Z - _ = error "negative"
+    (S m) - (S n) = m-n
+    abs = id
+    signum Z = Z
+    signum _= 1
+
+instance Ord Nat where
+    Z <= _ = True
+    _ <= Z = False
+    (S m) <= (S n) = m<=n
+
+instance Real Nat where
+    toRational Z = 0
+    toRational (S n) = 1 + toRational n
+
+instance Enum Nat where
+    fromEnum Z = 0
+    fromEnum (S n) = 1 + fromEnum n
+    toEnum 0 = Z
+    toEnum n = S . toEnum $ n-1
+
+instance Integral Nat where
+    toInteger Z = 0
+    toInteger (S n) =  1 + toInteger n
+    a `divMod` b = if a<b then (0,a) else let (q,r) = (a-b)`divMod`b in (q+1,r)
+
 addSingleton :: SNat m -> SNat n -> SNat (m:+n)
 SZ     `addSingleton` n = n
 (SS m) `addSingleton` n = SS $ m `addSingleton` n
